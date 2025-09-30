@@ -4,15 +4,15 @@ export default async function handler(req, res) {
     // Your Google Sheet configuration
     const SHEET_ID = '1vFT3DeUtUQhqyMZGiUJST8bQMzD2YmP1IkmSoeH3vFc';
     const SHEET_GIDS = {
-        'clinicians': '0',
-        'measures': '1960036634',
-        'mvps': '2070462647',
-        'benchmarks': '265964719',
-        'assignments': '1228784883',
-        'selections': '1089849621',
-        'performance': '1937078193',
-        'work': '1438710258',
-        'config': '1457717726'
+    'clinicians': '0',
+    'measures': '1838421790',
+    'mvps': '467952052',
+    'benchmarks': '322699637',
+    'assignments': '1879320597',
+    'selections': '1724246569',
+    'performance': '557443576',
+    'work': '1972144134',
+    'config': '128453598'
     };
     
     if (!SHEET_GIDS[sheet]) {
