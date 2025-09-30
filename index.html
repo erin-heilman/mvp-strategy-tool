@@ -76,7 +76,7 @@
             flex: 1;
         }
 
-        .filters {
+        #filter-container {
             background: white;
             padding: 15px;
             border-radius: 8px;
@@ -88,7 +88,7 @@
             flex-wrap: wrap;
         }
 
-        .filters input[type="text"] {
+        #filter-container input[type="text"] {
             flex: 1;
             min-width: 200px;
             padding: 8px 12px;
@@ -96,14 +96,14 @@
             border-radius: 4px;
         }
 
-        .filters select {
+        #filter-container select {
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
             background: white;
         }
 
-        .filters button {
+        #filter-container button {
             padding: 8px 16px;
             border: none;
             border-radius: 4px;
@@ -127,9 +127,24 @@
             color: white;
         }
 
-        .filters button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        .assignment-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .mode-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        #planning-mode {
+            display: block;
+        }
+
+        #review-mode {
+            display: none;
         }
 
         .main-layout {
@@ -166,14 +181,13 @@
             margin-bottom: 8px;
             background: #f8f9fa;
             border-radius: 6px;
-            cursor: move;
+            cursor: pointer;
             transition: all 0.2s;
             border: 2px solid transparent;
         }
 
         .clinician-item:hover {
             background: #e9ecef;
-            transform: translateX(5px);
         }
 
         .clinician-item.selected {
@@ -181,60 +195,52 @@
             border-color: #667eea;
         }
 
-        .clinician-item input[type="checkbox"] {
-            margin-top: 2px;
-        }
-
         .clinician-info {
             flex: 1;
         }
 
         .clinician-info strong {
-            color: #2d3748;
             display: block;
             margin-bottom: 4px;
         }
 
         .clinician-info small {
-            color: #718096;
             display: block;
-            line-height: 1.4;
+            color: #6c757d;
         }
 
         .npi {
-            color: #a0aec0;
             font-size: 11px;
+            color: #adb5bd;
         }
 
-        .ehr-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            background: #fef2e8;
-            color: #d97706;
-            border-radius: 3px;
-            font-size: 10px;
-            margin-top: 4px;
+        #mvp-cards {
+            min-height: 400px;
         }
 
-        .mvp-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 15px;
+        .empty-mvp-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-mvp-state h3 {
+            color: #495057;
+            margin-bottom: 15px;
         }
 
         .mvp-card {
             background: white;
-            border: 2px solid #e2e8f0;
+            border: 2px solid #e9ecef;
             border-radius: 8px;
             padding: 15px;
+            margin-bottom: 15px;
             cursor: pointer;
             transition: all 0.2s;
-            min-height: 200px;
         }
 
         .mvp-card:hover {
             border-color: #667eea;
-            transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
@@ -243,121 +249,453 @@
             background: #f0f4ff;
         }
 
-        .mvp-card.drag-over {
-            background: #e7f3ff;
-            border-color: #667eea;
-            border-style: dashed;
-        }
-
         .mvp-card h4 {
             color: #667eea;
             margin-bottom: 8px;
-            font-size: 16px;
+        }
+
+        .mvp-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #6c757d;
+            margin-bottom: 8px;
         }
 
         .mvp-specialties {
             font-size: 12px;
-            color: #718096;
+            color: #adb5bd;
             margin-bottom: 10px;
-            line-height: 1.4;
         }
 
-        .mvp-stats {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-top: 1px solid #e2e8f0;
-            margin-bottom: 10px;
-            font-size: 12px;
-            color: #4a5568;
-        }
-
-        .mvp-clinicians {
-            min-height: 40px;
+        .mvp-clinician-list {
             background: #f8f9fa;
-            border-radius: 4px;
             padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
         }
 
-        .assigned-clinician {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 8px;
-            margin: 2px 0;
-            background: white;
-            border-radius: 3px;
-            font-size: 13px;
+        .mini-clinician {
+            font-size: 12px;
+            padding: 2px 0;
         }
 
-        .remove-btn {
+        .more {
+            font-size: 11px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .remove-mvp {
             background: #dc3545;
             color: white;
             border: none;
-            border-radius: 3px;
-            padding: 2px 8px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
             cursor: pointer;
+            width: 100%;
+        }
+
+        .detail-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .detail-tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #6c757d;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .detail-tab.active {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            margin-bottom: -2px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #adb5bd;
+            font-style: italic;
+        }
+
+        .measures-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .measure-card {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .measure-card.selected {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+
+        .measure-card.activated {
+            background: #f0fff4;
+        }
+
+        .measure-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .measure-id {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .measure-name {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .badge.activated {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge.new {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .measure-config {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .measure-config select {
+            flex: 1;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             font-size: 12px;
         }
 
-        .remove-btn:hover {
-            background: #c82333;
+        .measure-requirement {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: 500;
+            color: #495057;
         }
 
-        #mvp-details {
+        .clinician-table {
+            display: grid;
+            gap: 8px;
+        }
+
+        .clinician-row {
+            display: grid;
+            grid-template-columns: 1fr 150px 120px 80px;
+            gap: 10px;
+            align-items: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .btn-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .work-items {
+            display: grid;
+            gap: 15px;
+        }
+
+        .work-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .work-item h4 {
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .work-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+
+        /* Review Mode Styles */
+        .review-container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .review-sidebar {
             background: white;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
         }
 
-        #mvp-details h4 {
-            color: #4a5568;
-            margin: 20px 0 10px 0;
+        .panel-header {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2d3748;
         }
 
-        .measures-list {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 4px;
-            min-height: 200px;
+        #review-mvp-list {
+            display: grid;
+            gap: 8px;
             margin-bottom: 20px;
         }
 
-        .placeholder {
-            color: #a0aec0;
-            font-style: italic;
-        }
-
-        .mvp-actions {
+        .review-mvp-item {
             display: flex;
-            gap: 10px;
-        }
-
-        .mvp-actions button {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 4px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
             cursor: pointer;
-            font-weight: 500;
+            transition: all 0.2s;
         }
 
-        .btn-primary {
+        .review-mvp-item:hover {
+            background: #e9ecef;
+        }
+
+        .review-mvp-item.active {
             background: #667eea;
             color: white;
         }
 
-        .btn-secondary {
-            background: #6c757d;
+        .mvp-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .mvp-score {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .overall-score {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .score-display {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .score-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .breakdown-item {
+            text-align: center;
+        }
+
+        .breakdown-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .breakdown-label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .review-main {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: auto;
+        }
+
+        #review-content {
+            min-height: 400px;
+        }
+
+        .performance-header {
+            margin-bottom: 20px;
+        }
+
+        .performance-header h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .measure-tabs {
+            display: flex;
+            gap: 5px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .measure-tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #6c757d;
+            font-weight: 500;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .measure-tab.active {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            margin-bottom: -2px;
+        }
+
+        .tab-score {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 8px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .measure-tab.active .tab-score {
+            background: #667eea;
             color: white;
         }
 
-        .empty-state {
-            color: #a0aec0;
-            font-style: italic;
+        .performance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .performance-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .performance-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .performance-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .performance-table input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .performance-table tfoot {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .decile {
             text-align: center;
-            padding: 40px 20px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .decile-1, .decile-2 {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .decile-3, .decile-4 {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .decile-5, .decile-6 {
+            background: #fffde7;
+            color: #f9a825;
+        }
+
+        .decile-7, .decile-8 {
+            background: #f1f8e9;
+            color: #558b2f;
+        }
+
+        .decile-9, .decile-10 {
+            background: #e0f2f1;
+            color: #00695c;
+        }
+
+        .points {
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
         }
 
         .export-btn {
@@ -378,6 +716,10 @@
         .export-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+
+        #main-app {
+            display: none;
         }
     </style>
 </head>
@@ -412,21 +754,97 @@
         Connecting to data source...
     </div>
 
-    <div class="container" id="main-app" style="display: none;">
-        <div id="filter-container"></div>
-        
-        <div class="main-layout">
-            <div class="panel" id="clinician-list">
-                <!-- Clinicians will be loaded here -->
+    <div class="container" id="main-app">
+        <!-- Planning Mode -->
+        <div id="planning-mode">
+            <div id="filter-container"></div>
+            
+            <div class="main-layout">
+                <!-- Left Panel: Clinicians -->
+                <div class="panel">
+                    <h3>Unassigned Clinicians</h3>
+                    <div id="clinician-list"></div>
+                </div>
+                
+                <!-- Center Panel: MVPs -->
+                <div class="panel">
+                    <h3>MVP Assignments</h3>
+                    <div id="mvp-cards"></div>
+                </div>
+                
+                <!-- Right Panel: Details -->
+                <div class="panel">
+                    <div class="detail-tabs">
+                        <div class="detail-tab active" onclick="switchDetailTab('measures')">Measures</div>
+                        <div class="detail-tab" onclick="switchDetailTab('clinicians')">Clinicians</div>
+                        <div class="detail-tab" onclick="switchDetailTab('work')">Work Plan</div>
+                    </div>
+                    
+                    <div class="tab-content active" id="measures-tab">
+                        <div id="mvp-details">
+                            <div class="empty-state">Select an MVP to configure measures</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="clinicians-tab">
+                        <div id="clinicians-details">
+                            <div class="empty-state">Select an MVP to view assigned clinicians</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="work-tab">
+                        <div id="work-details">
+                            <div class="empty-state">Select an MVP to view work requirements</div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div class="panel" id="mvp-grid">
-                <!-- MVP cards will be loaded here -->
+            <div class="mode-controls" style="position: fixed; bottom: 20px; left: 20px;">
+                <button onclick="toggleMode()" class="export-btn" style="left: 20px; right: auto;">
+                    Review Plan
+                </button>
+            </div>
+        </div>
+
+        <!-- Review Mode -->
+        <div id="review-mode">
+            <div class="review-container">
+                <div class="review-sidebar">
+                    <div class="panel-header">Active MVPs</div>
+                    <div id="review-mvp-list"></div>
+                    
+                    <div class="overall-score">
+                        <div class="score-label">Overall Quality Score</div>
+                        <div class="score-display" id="overall-score-display">0.0</div>
+                        <div class="score-breakdown">
+                            <div class="breakdown-item">
+                                <div class="breakdown-value" id="total-measures">0</div>
+                                <div class="breakdown-label">Total Measures</div>
+                            </div>
+                            <div class="breakdown-item">
+                                <div class="breakdown-value" id="avg-points">0.0</div>
+                                <div class="breakdown-label">Avg Points</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="review-main">
+                    <div id="review-content">
+                        <div class="empty-state">
+                            <h3>Select an MVP to Enter Performance Rates</h3>
+                            <p>Choose an MVP from the left sidebar to begin entering clinician performance data.</p>
+                        </div>
+                    </div>
+                    <div id="performance-table-container"></div>
+                </div>
             </div>
             
-            <div id="mvp-details">
-                <h3>MVP Details</h3>
-                <p class="placeholder">Click on an MVP to see details and configure measures</p>
+            <div class="mode-controls" style="position: fixed; bottom: 20px; left: 20px;">
+                <button onclick="toggleMode()" class="export-btn" style="left: 20px; right: auto;">
+                    Back to Planning
+                </button>
             </div>
         </div>
     </div>
