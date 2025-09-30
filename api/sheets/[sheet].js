@@ -1,14 +1,27 @@
-// API Route Handler for Google Sheets Data
-// Path: /api/sheets/[sheet].js
+// API Route: /api/sheets/[sheet].js
+// This handles BOTH /api/sheets/clinicians AND /api/sheets?sheet=clinicians
 
 export default async function handler(req, res) {
-    // Get sheet name from query parameter
-    const { sheet } = req.query;
+    // Get sheet name from either URL pattern
+    let sheet = req.query.sheet;
     
-    // Google Sheet configuration
+    // If using /api/sheets/[sheet] pattern, the sheet name is in the URL
+    // Extract from the URL path if not in query params
+    if (!sheet && req.url) {
+        const pathParts = req.url.split('/');
+        const lastPart = pathParts[pathParts.length - 1];
+        // Remove any query string from the last part
+        sheet = lastPart.split('?')[0];
+    }
+    
+    console.log('API Request for sheet:', sheet);
+    console.log('Full URL:', req.url);
+    console.log('Query params:', req.query);
+    
+    // Google Sheet configuration - YOUR SHEET ID
     const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
     
-    // Tab GIDs from your sheet
+    // Tab GIDs from your Google Sheet
     const SHEET_GIDS = {
         'clinicians': '0',
         'measures': '1838421790',
@@ -23,8 +36,10 @@ export default async function handler(req, res) {
     
     // Validate sheet parameter
     if (!sheet || !SHEET_GIDS[sheet]) {
+        console.error('Invalid sheet requested:', sheet);
         return res.status(400).json({ 
             error: 'Invalid or missing sheet parameter',
+            requested: sheet,
             validSheets: Object.keys(SHEET_GIDS)
         });
     }
@@ -33,24 +48,24 @@ export default async function handler(req, res) {
     const gid = SHEET_GIDS[sheet];
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
     
+    console.log('Fetching from Google Sheets:', url);
+    
     try {
-        console.log(`Fetching sheet: ${sheet} (GID: ${gid})`);
-        
         // Fetch CSV data from Google Sheets
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'MVP-Tool/1.0'
-            }
-        });
+        const response = await fetch(url);
         
         if (!response.ok) {
+            console.error('Google Sheets returned status:', response.status);
             throw new Error(`Google Sheets returned status ${response.status}`);
         }
         
         const csvText = await response.text();
+        console.log('CSV Response length:', csvText.length);
+        console.log('First 200 chars:', csvText.substring(0, 200));
         
         // Check for HTML error response
         if (csvText.includes('<!DOCTYPE') || csvText.includes('<html')) {
+            console.error('Got HTML instead of CSV - sheet not public');
             return res.status(403).json({ 
                 error: 'Unable to access sheet. Make sure it is publicly shared.',
                 sheet: sheet,
@@ -61,17 +76,21 @@ export default async function handler(req, res) {
         // Parse CSV to JSON
         const data = parseCSV(csvText);
         
-        console.log(`Successfully fetched ${data.length} rows from ${sheet}`);
+        console.log(`Successfully parsed ${data.length} rows from ${sheet}`);
+        
+        // Log sample data for debugging
+        if (data.length > 0) {
+            console.log('Sample row:', JSON.stringify(data[0], null, 2));
+        }
         
         // Set cache headers
         res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET');
         
         return res.status(200).json(data);
         
     } catch (error) {
-        console.error(`Error fetching ${sheet}:`, error.message);
+        console.error(`Error fetching ${sheet}:`, error);
         
         return res.status(500).json({ 
             error: 'Failed to fetch sheet data',
@@ -81,48 +100,106 @@ export default async function handler(req, res) {
     }
 }
 
-// CSV Parser Function
+// Improved CSV Parser
 function parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
+    if (!csvText || csvText.trim() === '') {
+        return [];
+    }
+    
+    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line);
     
     if (lines.length === 0) {
         return [];
     }
     
-    // Parse headers
-    const headers = parseCSVLine(lines[0]).map(header => 
-        header.trim().toLowerCase().replace(/\s+/g, '_')
-    );
+    // Parse headers - don't lowercase them yet, keep original
+    const headerLine = lines[0];
+    const headers = parseCSVLine(headerLine);
+    
+    console.log('CSV Headers found:', headers);
     
     // Parse data rows
     const data = [];
     for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i]);
+        const line = lines[i];
+        if (!line.trim()) continue;
         
-        // Skip rows with wrong number of columns
-        if (values.length !== headers.length) {
-            continue;
-        }
+        const values = parseCSVLine(line);
         
         // Create object from headers and values
         const row = {};
         headers.forEach((header, index) => {
-            let value = values[index] || '';
+            // Store with multiple key formats for compatibility
+            const originalHeader = header.trim();
+            const lowerHeader = originalHeader.toLowerCase().replace(/\s+/g, '_');
             
-            // Clean up value
-            value = value.replace(/^["']|["']$/g, '').trim();
+            const value = (values[index] || '').trim();
             
-            // Store in row object
-            row[header] = value;
+            // Store with both original and normalized keys
+            row[originalHeader] = value;
+            row[lowerHeader] = value;
+            
+            // Also add common variations
+            if (originalHeader === 'Name') {
+                row['name'] = value;
+                row['clinician_name'] = value;
+            }
+            if (originalHeader === 'NPI') {
+                row['npi'] = value;
+            }
+            if (originalHeader === 'Specialty') {
+                row['specialty'] = value;
+                row['primary_specialty'] = value;
+            }
+            if (originalHeader === 'TIN') {
+                row['tin'] = value;
+            }
+            if (originalHeader === 'Separate EHR') {
+                row['separate_ehr'] = value;
+            }
+            
+            // For MVP sheet
+            if (originalHeader === 'MVP ID') {
+                row['mvp_id'] = value;
+            }
+            if (originalHeader === 'MVP Name') {
+                row['mvp_name'] = value;
+            }
+            if (originalHeader === 'Eligible Specialties') {
+                row['eligible_specialties'] = value;
+                row['specialties'] = value;
+            }
+            if (originalHeader === 'Available Measures') {
+                row['available_measures'] = value;
+            }
+            
+            // For Measures sheet
+            if (originalHeader === 'Measure ID') {
+                row['measure_id'] = value;
+            }
+            if (originalHeader === 'Measure Name') {
+                row['measure_name'] = value;
+            }
+            if (originalHeader === 'Is Activated') {
+                row['is_activated'] = value;
+            }
+            if (originalHeader === 'Collection Types') {
+                row['collection_types'] = value;
+            }
         });
         
-        data.push(row);
+        // Only add non-empty rows
+        if (Object.values(row).some(v => v && v !== '')) {
+            data.push(row);
+        }
     }
+    
+    console.log(`Parsed ${data.length} data rows`);
     
     return data;
 }
 
-// Parse a single CSV line handling quoted values
+// Parse a single CSV line handling quotes properly
 function parseCSVLine(line) {
     const result = [];
     let current = '';
@@ -136,23 +213,22 @@ function parseCSVLine(line) {
             if (inQuotes && nextChar === '"') {
                 // Escaped quote
                 current += '"';
-                i++; // Skip next quote
+                i++;
             } else {
-                // Toggle quote mode
+                // Toggle quotes
                 inQuotes = !inQuotes;
             }
         } else if (char === ',' && !inQuotes) {
             // End of field
-            result.push(current.trim());
+            result.push(current);
             current = '';
         } else if (char !== '\r') {
-            // Add character to current field
             current += char;
         }
     }
     
-    // Add last field
-    result.push(current.trim());
+    // Don't forget last field
+    result.push(current);
     
-    return result;
+    return result.map(field => field.trim());
 }
