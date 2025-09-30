@@ -2,7 +2,7 @@ export default async function handler(req, res) {
     const { sheet } = req.query;
     
     // Your Google Sheet configuration
-    const SHEET_ID = '1vFT3DeUtUQhqyMZGiUJST8bQMzD2YmP1IkmSoeH3vFc';
+    const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
     const SHEET_GIDS = {
     'clinicians': '0',
     'measures': '1838421790',
