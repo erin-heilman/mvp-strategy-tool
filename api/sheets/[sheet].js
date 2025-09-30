@@ -1,57 +1,128 @@
+// API Route Handler for Google Sheets Data
+// Path: /api/sheets/[sheet].js
+
 export default async function handler(req, res) {
+    // Get sheet name from query parameter
     const { sheet } = req.query;
     
-    // Your Google Sheet configuration
+    // Google Sheet configuration
     const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
+    
+    // Tab GIDs from your sheet
     const SHEET_GIDS = {
-    'clinicians': '0',
-    'measures': '1838421790',
-    'mvps': '467952052',
-    'benchmarks': '322699637',
-    'assignments': '1879320597',
-    'selections': '1724246569',
-    'performance': '557443576',
-    'work': '1972144134',
-    'config': '128453598'
+        'clinicians': '0',
+        'measures': '1838421790',
+        'mvps': '467952052',
+        'benchmarks': '322699637',
+        'assignments': '1879320597',
+        'selections': '1724246569',
+        'performance': '557443576',
+        'work': '1972144134',
+        'config': '128453598'
     };
     
-    if (!SHEET_GIDS[sheet]) {
-        return res.status(400).json({ error: 'Invalid sheet name' });
+    // Validate sheet parameter
+    if (!sheet || !SHEET_GIDS[sheet]) {
+        return res.status(400).json({ 
+            error: 'Invalid or missing sheet parameter',
+            validSheets: Object.keys(SHEET_GIDS)
+        });
     }
     
+    // Build Google Sheets CSV export URL
     const gid = SHEET_GIDS[sheet];
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
     
     try {
-        // This runs on Vercel's server, not in the browser - NO CORS!
-        const response = await fetch(url);
-        const csvText = await response.text();
+        console.log(`Fetching sheet: ${sheet} (GID: ${gid})`);
         
-        // Parse CSV
-        const lines = csvText.split('\n').filter(line => line.trim());
-        const headers = lines[0].split(',').map(h => h.replace(/["\r]/g, '').trim());
-        
-        const data = [];
-        for (let i = 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i]);
-            if (values.length === headers.length) {
-                const obj = {};
-                headers.forEach((header, index) => {
-                    obj[header.toLowerCase().replace(/\s+/g, '_')] = values[index];
-                });
-                data.push(obj);
+        // Fetch CSV data from Google Sheets
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'MVP-Tool/1.0'
             }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Google Sheets returned status ${response.status}`);
         }
         
-        res.setHeader('Cache-Control', 's-maxage=60');
+        const csvText = await response.text();
+        
+        // Check for HTML error response
+        if (csvText.includes('<!DOCTYPE') || csvText.includes('<html')) {
+            return res.status(403).json({ 
+                error: 'Unable to access sheet. Make sure it is publicly shared.',
+                sheet: sheet,
+                hint: 'Set Google Sheet sharing to "Anyone with the link can view"'
+            });
+        }
+        
+        // Parse CSV to JSON
+        const data = parseCSV(csvText);
+        
+        console.log(`Successfully fetched ${data.length} rows from ${sheet}`);
+        
+        // Set cache headers
+        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        
         return res.status(200).json(data);
         
     } catch (error) {
-        console.error('Error:', error);
-        return res.status(500).json({ error: 'Failed to fetch data' });
+        console.error(`Error fetching ${sheet}:`, error.message);
+        
+        return res.status(500).json({ 
+            error: 'Failed to fetch sheet data',
+            sheet: sheet,
+            details: error.message
+        });
     }
 }
 
+// CSV Parser Function
+function parseCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+        return [];
+    }
+    
+    // Parse headers
+    const headers = parseCSVLine(lines[0]).map(header => 
+        header.trim().toLowerCase().replace(/\s+/g, '_')
+    );
+    
+    // Parse data rows
+    const data = [];
+    for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        
+        // Skip rows with wrong number of columns
+        if (values.length !== headers.length) {
+            continue;
+        }
+        
+        // Create object from headers and values
+        const row = {};
+        headers.forEach((header, index) => {
+            let value = values[index] || '';
+            
+            // Clean up value
+            value = value.replace(/^["']|["']$/g, '').trim();
+            
+            // Store in row object
+            row[header] = value;
+        });
+        
+        data.push(row);
+    }
+    
+    return data;
+}
+
+// Parse a single CSV line handling quoted values
 function parseCSVLine(line) {
     const result = [];
     let current = '';
@@ -59,17 +130,29 @@ function parseCSVLine(line) {
     
     for (let i = 0; i < line.length; i++) {
         const char = line[i];
+        const nextChar = line[i + 1];
         
         if (char === '"') {
-            inQuotes = !inQuotes;
+            if (inQuotes && nextChar === '"') {
+                // Escaped quote
+                current += '"';
+                i++; // Skip next quote
+            } else {
+                // Toggle quote mode
+                inQuotes = !inQuotes;
+            }
         } else if (char === ',' && !inQuotes) {
+            // End of field
             result.push(current.trim());
             current = '';
         } else if (char !== '\r') {
+            // Add character to current field
             current += char;
         }
     }
     
+    // Add last field
     result.push(current.trim());
+    
     return result;
 }
