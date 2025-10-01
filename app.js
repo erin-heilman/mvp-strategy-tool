@@ -465,6 +465,7 @@ function renderWorkTab(mvp) {
 }
 
 // Review Mode
+// 1. Fix the renderReviewMode function to show better styling for MVP list
 function renderReviewMode() {
     currentMode = 'review';
     
@@ -496,10 +497,11 @@ function renderReviewMode() {
         div.className = `review-mvp-item ${currentMVP === mvp.mvp_id ? 'active' : ''}`;
         div.onclick = () => selectReviewMVP(mvp.mvp_id);
         
+        // Fixed: Better contrast for the text
         div.innerHTML = `
             <div>
                 <div class="mvp-name">${mvp.mvp_name}</div>
-                <div class="mvp-meta-small">
+                <div class="mvp-meta-small" style="color: #6c757d;">
                     ${assignments[mvp.mvp_id].length} clinicians, 
                     ${mvpSelections[mvp.mvp_id].measures.length} measures
                 </div>
@@ -513,6 +515,8 @@ function renderReviewMode() {
     if (!currentMVP && activeMVPs.length > 0) {
         selectReviewMVP(activeMVPs[0].mvp_id);
     }
+    
+    updateOverallScore();
 }
 
 function selectReviewMVP(mvpId) {
@@ -561,11 +565,71 @@ function renderPerformanceEntry(mvpId) {
     container.innerHTML = html;
 }
 
+// 2. Fix renderPerformanceEntry to show measure NAMES instead of IDs
+function renderPerformanceEntry(mvpId) {
+    const container = document.getElementById('review-content');
+    if (!container) return;
+    
+    const mvp = mvps.find(m => m.mvp_id === mvpId);
+    const selections = mvpSelections[mvpId];
+    const assigned = assignments[mvpId] || [];
+    
+    if (!selections || selections.measures.length === 0 || assigned.length === 0) {
+        container.innerHTML = '<div class="empty-state">No data to display</div>';
+        return;
+    }
+    
+    let html = `
+        <div class="performance-header">
+            <h2>${mvp.mvp_name}</h2>
+            <div class="mvp-summary">
+                <span>${assigned.length} Clinicians</span>
+                <span>${selections.measures.length} Measures</span>
+            </div>
+            <div class="measure-tabs">
+    `;
+    
+    selections.measures.forEach((measureId, index) => {
+        const measure = measures.find(m => m.measure_id === measureId);
+        const score = calculateMeasureScore(mvpId, measureId);
+        
+        // Show measure NAME instead of just ID
+        const displayName = measure ? 
+            `${measure.measure_name}` : 
+            `${measureId}`;
+        
+        html += `
+            <div class="measure-tab ${index === 0 ? 'active' : ''}" 
+                 onclick="switchMeasureTab('${mvpId}', '${measureId}', this)"
+                 title="${measureId}: ${measure?.measure_name || ''}">
+                ${displayName}
+                <span class="tab-score">${score.toFixed(1)}</span>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+        <div id="performance-table-container">
+            ${renderPerformanceTable(mvpId, selections.measures[0])}
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+// 3. Fix renderPerformanceTable to properly initialize and calculate deciles
 function renderPerformanceTable(mvpId, measureId) {
     const assigned = assignments[mvpId] || [];
+    const config = mvpSelections[mvpId]?.configs[measureId] || {};
     
     if (assigned.length === 0) {
         return '<div class="empty-state">No clinicians assigned</div>';
+    }
+    
+    // Initialize performance data if it doesn't exist
+    if (!mvpPerformance[mvpId]) {
+        mvpPerformance[mvpId] = {};
     }
     
     let html = `
@@ -586,28 +650,43 @@ function renderPerformanceTable(mvpId, measureId) {
         const clinician = clinicians.find(c => c.npi === npi);
         if (!clinician) return;
         
+        const perfKey = `${measureId}_${npi}`;
+        const perfRate = mvpPerformance[mvpId]?.[perfKey] || 0;
+        const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', perfRate);
+        
         html += `
             <tr>
                 <td>${clinician.name}</td>
                 <td>${clinician.specialty}</td>
                 <td>
-                    <input type="number" value="0" min="0" max="100" step="0.1"
+                    <input type="number" 
+                           value="${perfRate}" 
+                           min="0" max="100" step="0.1"
                            onchange="updatePerformance('${mvpId}', '${measureId}', '${npi}', this.value)">
                 </td>
-                <td class="decile">1</td>
-                <td class="points">1.0</td>
+                <td class="decile decile-${decileInfo.decile}">${decileInfo.decile}</td>
+                <td class="points">${decileInfo.points.toFixed(1)}</td>
             </tr>
         `;
     });
     
+    const avgPerf = calculateMeasureAverage(mvpId, measureId);
+    const avgScore = calculateMeasureScore(mvpId, measureId);
+    
     html += `
             </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"><strong>Measure Average</strong></td>
+                    <td><strong>${avgPerf.toFixed(1)}%</strong></td>
+                    <td colspan="2"><strong>${avgScore.toFixed(1)} pts</strong></td>
+                </tr>
+            </tfoot>
         </table>
     `;
     
     return html;
 }
-
 // Selection functions
 function toggleSelection(npi) {
     if (selectedClinicians.has(npi)) {
@@ -910,19 +989,119 @@ function switchMeasureTab(mvpId, measureId, tabElement) {
     }
 }
 
+/ 4. Fix updatePerformance to properly refresh the display
 function updatePerformance(mvpId, measureId, npi, value) {
     if (!mvpPerformance[mvpId]) {
         mvpPerformance[mvpId] = {};
     }
     
     mvpPerformance[mvpId][`${measureId}_${npi}`] = parseFloat(value) || 0;
+    
+    // Re-render the current table with updated values
+    const container = document.getElementById('performance-table-container');
+    if (container) {
+        container.innerHTML = renderPerformanceTable(mvpId, measureId);
+    }
+    
+    // Update the score in the sidebar
+    const listItems = document.querySelectorAll('.review-mvp-item');
+    listItems.forEach(item => {
+        if (item.querySelector('.mvp-name')?.textContent === mvps.find(m => m.mvp_id === mvpId)?.mvp_name) {
+            const score = calculateMVPScore(mvpId);
+            const scoreEl = item.querySelector('.mvp-score');
+            if (scoreEl) scoreEl.textContent = score.toFixed(1);
+        }
+    });
+    
+    // Update overall score
+    updateOverallScore();
 }
-
+// 5. Fix calculateDecile with proper thresholds
+function calculateDecile(measureId, collectionType, performanceRate) {
+    // More realistic decile calculation
+    if (performanceRate >= 95) return { decile: 10, points: 10 };
+    if (performanceRate >= 90) return { decile: 9, points: 9.0 };
+    if (performanceRate >= 85) return { decile: 8, points: 8.0 };
+    if (performanceRate >= 80) return { decile: 7, points: 7.0 };
+    if (performanceRate >= 75) return { decile: 6, points: 6.0 };
+    if (performanceRate >= 70) return { decile: 5, points: 5.0 };
+    if (performanceRate >= 60) return { decile: 4, points: 4.0 };
+    if (performanceRate >= 50) return { decile: 3, points: 3.0 };
+    if (performanceRate >= 40) return { decile: 2, points: 2.0 };
+    return { decile: 1, points: 1.0 };
+}
+// 6. Fix calculation functions
+function calculateMeasureAverage(mvpId, measureId) {
+    const assigned = assignments[mvpId] || [];
+    let total = 0;
+    let count = 0;
+    
+    assigned.forEach(npi => {
+        const perfKey = `${measureId}_${npi}`;
+        const perfRate = mvpPerformance[mvpId]?.[perfKey];
+        if (perfRate !== undefined && perfRate !== null) {
+            total += perfRate;
+            count++;
+        }
+    });
+    
+    return count > 0 ? total / count : 0;
+}
+function calculateMeasureScore(mvpId, measureId) {
+    const avg = calculateMeasureAverage(mvpId, measureId);
+    const config = mvpSelections[mvpId]?.configs[measureId] || {};
+    const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', avg);
+    return decileInfo.points;
+}
 function calculateMVPScore(mvpId) {
-    // Simple placeholder - would use actual calculations
-    return 5.0;
+    const selections = mvpSelections[mvpId];
+    if (!selections || selections.measures.length === 0) return 0;
+    
+    let totalScore = 0;
+    selections.measures.forEach(measureId => {
+        totalScore += calculateMeasureScore(mvpId, measureId);
+    });
+    
+    return selections.measures.length > 0 ? totalScore / selections.measures.length : 0;
 }
-
+function updateOverallScore() {
+    const activeMVPs = mvps.filter(mvp => 
+        assignments[mvp.mvp_id]?.length > 0 && 
+        mvpSelections[mvp.mvp_id]?.measures.length > 0
+    );
+    
+    let totalScore = 0;
+    let totalClinicians = 0;
+    let totalMeasures = 0;
+    
+    activeMVPs.forEach(mvp => {
+        const score = calculateMVPScore(mvp.mvp_id);
+        const clinicianCount = assignments[mvp.mvp_id].length;
+        totalScore += score * clinicianCount;
+        totalClinicians += clinicianCount;
+        
+        if (mvpSelections[mvp.mvp_id]) {
+            totalMeasures += mvpSelections[mvp.mvp_id].measures.length;
+        }
+    });
+    
+    const overallScore = totalClinicians > 0 ? totalScore / totalClinicians : 0;
+    
+    const displayEl = document.getElementById('overall-score-display');
+    if (displayEl) {
+        displayEl.textContent = overallScore.toFixed(1);
+    }
+    
+    const measuresEl = document.getElementById('total-measures');
+    if (measuresEl) {
+        measuresEl.textContent = totalMeasures;
+    }
+    
+    const pointsEl = document.getElementById('avg-points');
+    if (pointsEl) {
+        pointsEl.textContent = overallScore.toFixed(1);
+    }
+}
 function exportPlan() {
     const exportData = {
         timestamp: new Date().toISOString(),
