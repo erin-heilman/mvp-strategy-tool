@@ -1,5 +1,5 @@
-// MVP Strategic Planning Tool - Complete Working Version
-console.log('MVP Tool Starting - Complete Version v3.0...');
+// MVP Strategic Planning Tool - COMPLETE WORKING VERSION WITH ALL FIXES
+console.log('MVP Tool Starting - Final Working Version...');
 
 // Configuration
 const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
@@ -142,6 +142,10 @@ async function loadData() {
         
         mvps = [
             { mvp_id: 'MVP001', mvp_name: 'Primary Care MVP', specialties: 'Family Medicine', available_measures: 'Q001,Q112' }
+        ];
+        
+        measures = [
+            { measure_id: 'Q001', measure_name: 'Diabetes Control', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Medium' }
         ];
     }
     
@@ -464,8 +468,7 @@ function renderWorkTab(mvp) {
     container.innerHTML = html;
 }
 
-// Review Mode
-// 1. Fix the renderReviewMode function to show better styling for MVP list
+// FIXED Review Mode Functions
 function renderReviewMode() {
     currentMode = 'review';
     
@@ -486,7 +489,11 @@ function renderReviewMode() {
     );
     
     if (activeMVPs.length === 0) {
-        listContainer.innerHTML = '<div class="empty-state">No MVPs configured</div>';
+        listContainer.innerHTML = '<div class="empty-state">No MVPs configured with both clinicians and measures.</div>';
+        const contentEl = document.getElementById('review-content');
+        if (contentEl) {
+            contentEl.innerHTML = '<div class="empty-state">Please assign clinicians and select measures for at least one MVP before reviewing.</div>';
+        }
         return;
     }
     
@@ -501,7 +508,7 @@ function renderReviewMode() {
         div.innerHTML = `
             <div>
                 <div class="mvp-name">${mvp.mvp_name}</div>
-                <div class="mvp-meta-small" style="color: #6c757d;">
+                <div class="mvp-meta-small" style="color: ${currentMVP === mvp.mvp_id ? 'rgba(255,255,255,0.8)' : '#6c757d'};">
                     ${assignments[mvp.mvp_id].length} clinicians, 
                     ${mvpSelections[mvp.mvp_id].measures.length} measures
                 </div>
@@ -514,6 +521,8 @@ function renderReviewMode() {
     
     if (!currentMVP && activeMVPs.length > 0) {
         selectReviewMVP(activeMVPs[0].mvp_id);
+    } else if (currentMVP) {
+        renderPerformanceEntry(currentMVP);
     }
     
     updateOverallScore();
@@ -521,51 +530,32 @@ function renderReviewMode() {
 
 function selectReviewMVP(mvpId) {
     currentMVP = mvpId;
+    
+    // Update active state in list
+    document.querySelectorAll('.review-mvp-item').forEach(item => {
+        item.classList.remove('active');
+        // Update text color based on active state
+        const metaEl = item.querySelector('.mvp-meta-small');
+        if (metaEl) {
+            metaEl.style.color = '#6c757d';
+        }
+    });
+    
+    // Find and highlight the selected item
+    document.querySelectorAll('.review-mvp-item').forEach(item => {
+        const nameEl = item.querySelector('.mvp-name');
+        if (nameEl && nameEl.textContent === mvps.find(m => m.mvp_id === mvpId)?.mvp_name) {
+            item.classList.add('active');
+            const metaEl = item.querySelector('.mvp-meta-small');
+            if (metaEl) {
+                metaEl.style.color = 'rgba(255,255,255,0.8)';
+            }
+        }
+    });
+    
     renderPerformanceEntry(mvpId);
 }
 
-function renderPerformanceEntry(mvpId) {
-    const container = document.getElementById('review-content');
-    if (!container) return;
-    
-    const mvp = mvps.find(m => m.mvp_id === mvpId);
-    const selections = mvpSelections[mvpId];
-    const assigned = assignments[mvpId] || [];
-    
-    if (!selections || selections.measures.length === 0 || assigned.length === 0) {
-        container.innerHTML = '<div class="empty-state">No data to display</div>';
-        return;
-    }
-    
-    let html = `
-        <div class="performance-header">
-            <h2>${mvp.mvp_name}</h2>
-            <div class="measure-tabs">
-    `;
-    
-    selections.measures.forEach((measureId, index) => {
-        const measure = measures.find(m => m.measure_id === measureId);
-        html += `
-            <div class="measure-tab ${index === 0 ? 'active' : ''}" 
-                 onclick="switchMeasureTab('${mvpId}', '${measureId}', this)">
-                ${measureId}
-                <span class="tab-score">0.0</span>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-        </div>
-        <div id="performance-table-container">
-            ${renderPerformanceTable(mvpId, selections.measures[0])}
-        </div>
-    `;
-    
-    container.innerHTML = html;
-}
-
-// 2. Fix renderPerformanceEntry to show measure NAMES instead of IDs
 function renderPerformanceEntry(mvpId) {
     const container = document.getElementById('review-content');
     if (!container) return;
@@ -594,9 +584,7 @@ function renderPerformanceEntry(mvpId) {
         const score = calculateMeasureScore(mvpId, measureId);
         
         // Show measure NAME instead of just ID
-        const displayName = measure ? 
-            `${measure.measure_name}` : 
-            `${measureId}`;
+        const displayName = measure ? measure.measure_name : measureId;
         
         html += `
             <div class="measure-tab ${index === 0 ? 'active' : ''}" 
@@ -618,7 +606,7 @@ function renderPerformanceEntry(mvpId) {
     
     container.innerHTML = html;
 }
-// 3. Fix renderPerformanceTable to properly initialize and calculate deciles
+
 function renderPerformanceTable(mvpId, measureId) {
     const assigned = assignments[mvpId] || [];
     const config = mvpSelections[mvpId]?.configs[measureId] || {};
@@ -687,6 +675,149 @@ function renderPerformanceTable(mvpId, measureId) {
     
     return html;
 }
+
+function updatePerformance(mvpId, measureId, npi, value) {
+    if (!mvpPerformance[mvpId]) {
+        mvpPerformance[mvpId] = {};
+    }
+    
+    mvpPerformance[mvpId][`${measureId}_${npi}`] = parseFloat(value) || 0;
+    
+    // Re-render the current table with updated values
+    const container = document.getElementById('performance-table-container');
+    if (container) {
+        container.innerHTML = renderPerformanceTable(mvpId, measureId);
+    }
+    
+    // Update the tab score
+    const tabs = document.querySelectorAll('.measure-tab');
+    tabs.forEach(tab => {
+        if (tab.textContent.includes(measures.find(m => m.measure_id === measureId)?.measure_name || measureId)) {
+            const score = calculateMeasureScore(mvpId, measureId);
+            const scoreEl = tab.querySelector('.tab-score');
+            if (scoreEl) {
+                scoreEl.textContent = score.toFixed(1);
+            }
+        }
+    });
+    
+    // Update the score in the sidebar
+    const listItems = document.querySelectorAll('.review-mvp-item');
+    listItems.forEach(item => {
+        if (item.querySelector('.mvp-name')?.textContent === mvps.find(m => m.mvp_id === mvpId)?.mvp_name) {
+            const score = calculateMVPScore(mvpId);
+            const scoreEl = item.querySelector('.mvp-score');
+            if (scoreEl) scoreEl.textContent = score.toFixed(1);
+        }
+    });
+    
+    // Update overall score
+    updateOverallScore();
+}
+
+function calculateDecile(measureId, collectionType, performanceRate) {
+    // More realistic decile calculation
+    if (performanceRate >= 95) return { decile: 10, points: 10.0 };
+    if (performanceRate >= 90) return { decile: 9, points: 9.0 };
+    if (performanceRate >= 85) return { decile: 8, points: 8.0 };
+    if (performanceRate >= 80) return { decile: 7, points: 7.0 };
+    if (performanceRate >= 75) return { decile: 6, points: 6.0 };
+    if (performanceRate >= 70) return { decile: 5, points: 5.0 };
+    if (performanceRate >= 60) return { decile: 4, points: 4.0 };
+    if (performanceRate >= 50) return { decile: 3, points: 3.0 };
+    if (performanceRate >= 40) return { decile: 2, points: 2.0 };
+    return { decile: 1, points: 1.0 };
+}
+
+function calculateMeasureAverage(mvpId, measureId) {
+    const assigned = assignments[mvpId] || [];
+    let total = 0;
+    let count = 0;
+    
+    assigned.forEach(npi => {
+        const perfKey = `${measureId}_${npi}`;
+        const perfRate = mvpPerformance[mvpId]?.[perfKey];
+        if (perfRate !== undefined && perfRate !== null) {
+            total += perfRate;
+            count++;
+        }
+    });
+    
+    return count > 0 ? total / count : 0;
+}
+
+function calculateMeasureScore(mvpId, measureId) {
+    const avg = calculateMeasureAverage(mvpId, measureId);
+    const config = mvpSelections[mvpId]?.configs[measureId] || {};
+    const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', avg);
+    return decileInfo.points;
+}
+
+function calculateMVPScore(mvpId) {
+    const selections = mvpSelections[mvpId];
+    if (!selections || selections.measures.length === 0) return 0;
+    
+    let totalScore = 0;
+    selections.measures.forEach(measureId => {
+        totalScore += calculateMeasureScore(mvpId, measureId);
+    });
+    
+    return selections.measures.length > 0 ? totalScore / selections.measures.length : 0;
+}
+
+function updateOverallScore() {
+    const activeMVPs = mvps.filter(mvp => 
+        assignments[mvp.mvp_id]?.length > 0 && 
+        mvpSelections[mvp.mvp_id]?.measures.length > 0
+    );
+    
+    let totalScore = 0;
+    let totalClinicians = 0;
+    let totalMeasures = 0;
+    
+    activeMVPs.forEach(mvp => {
+        const score = calculateMVPScore(mvp.mvp_id);
+        const clinicianCount = assignments[mvp.mvp_id].length;
+        totalScore += score * clinicianCount;
+        totalClinicians += clinicianCount;
+        
+        if (mvpSelections[mvp.mvp_id]) {
+            totalMeasures += mvpSelections[mvp.mvp_id].measures.length;
+        }
+    });
+    
+    const overallScore = totalClinicians > 0 ? totalScore / totalClinicians : 0;
+    
+    const displayEl = document.getElementById('overall-score-display');
+    if (displayEl) {
+        displayEl.textContent = overallScore.toFixed(1);
+    }
+    
+    const measuresEl = document.getElementById('total-measures');
+    if (measuresEl) {
+        measuresEl.textContent = totalMeasures;
+    }
+    
+    const pointsEl = document.getElementById('avg-points');
+    if (pointsEl) {
+        pointsEl.textContent = overallScore.toFixed(1);
+    }
+}
+
+function switchMeasureTab(mvpId, measureId, tabElement) {
+    // Update active tab
+    document.querySelectorAll('.measure-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    tabElement.classList.add('active');
+    
+    // Render new table
+    const container = document.getElementById('performance-table-container');
+    if (container) {
+        container.innerHTML = renderPerformanceTable(mvpId, measureId);
+    }
+}
+
 // Selection functions
 function toggleSelection(npi) {
     if (selectedClinicians.has(npi)) {
@@ -890,7 +1021,9 @@ function saveAsNewScenario() {
 
 function loadScenario(name) {
     if (!savedScenarios[name]) {
-        alert('Scenario not found');
+        if (name !== 'Default') {
+            alert('Scenario not found');
+        }
         return;
     }
     
@@ -905,7 +1038,7 @@ function loadScenario(name) {
 }
 
 function resetScenario() {
-    if (!confirm('Are you sure you want to reset the current scenario?')) {
+    if (!confirm('Are you sure you want to reset the current scenario? This will clear all assignments and selections.')) {
         return;
     }
     
@@ -977,138 +1110,18 @@ function switchDetailTab(tab) {
     }
 }
 
-function switchMeasureTab(mvpId, measureId, tabElement) {
-    document.querySelectorAll('.measure-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    tabElement.classList.add('active');
-    
-    const container = document.getElementById('performance-table-container');
-    if (container) {
-        container.innerHTML = renderPerformanceTable(mvpId, measureId);
-    }
-}
-
-/ 4. Fix updatePerformance to properly refresh the display
-function updatePerformance(mvpId, measureId, npi, value) {
-    if (!mvpPerformance[mvpId]) {
-        mvpPerformance[mvpId] = {};
-    }
-    
-    mvpPerformance[mvpId][`${measureId}_${npi}`] = parseFloat(value) || 0;
-    
-    // Re-render the current table with updated values
-    const container = document.getElementById('performance-table-container');
-    if (container) {
-        container.innerHTML = renderPerformanceTable(mvpId, measureId);
-    }
-    
-    // Update the score in the sidebar
-    const listItems = document.querySelectorAll('.review-mvp-item');
-    listItems.forEach(item => {
-        if (item.querySelector('.mvp-name')?.textContent === mvps.find(m => m.mvp_id === mvpId)?.mvp_name) {
-            const score = calculateMVPScore(mvpId);
-            const scoreEl = item.querySelector('.mvp-score');
-            if (scoreEl) scoreEl.textContent = score.toFixed(1);
-        }
-    });
-    
-    // Update overall score
-    updateOverallScore();
-}
-// 5. Fix calculateDecile with proper thresholds
-function calculateDecile(measureId, collectionType, performanceRate) {
-    // More realistic decile calculation
-    if (performanceRate >= 95) return { decile: 10, points: 10 };
-    if (performanceRate >= 90) return { decile: 9, points: 9.0 };
-    if (performanceRate >= 85) return { decile: 8, points: 8.0 };
-    if (performanceRate >= 80) return { decile: 7, points: 7.0 };
-    if (performanceRate >= 75) return { decile: 6, points: 6.0 };
-    if (performanceRate >= 70) return { decile: 5, points: 5.0 };
-    if (performanceRate >= 60) return { decile: 4, points: 4.0 };
-    if (performanceRate >= 50) return { decile: 3, points: 3.0 };
-    if (performanceRate >= 40) return { decile: 2, points: 2.0 };
-    return { decile: 1, points: 1.0 };
-}
-// 6. Fix calculation functions
-function calculateMeasureAverage(mvpId, measureId) {
-    const assigned = assignments[mvpId] || [];
-    let total = 0;
-    let count = 0;
-    
-    assigned.forEach(npi => {
-        const perfKey = `${measureId}_${npi}`;
-        const perfRate = mvpPerformance[mvpId]?.[perfKey];
-        if (perfRate !== undefined && perfRate !== null) {
-            total += perfRate;
-            count++;
-        }
-    });
-    
-    return count > 0 ? total / count : 0;
-}
-function calculateMeasureScore(mvpId, measureId) {
-    const avg = calculateMeasureAverage(mvpId, measureId);
-    const config = mvpSelections[mvpId]?.configs[measureId] || {};
-    const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', avg);
-    return decileInfo.points;
-}
-function calculateMVPScore(mvpId) {
-    const selections = mvpSelections[mvpId];
-    if (!selections || selections.measures.length === 0) return 0;
-    
-    let totalScore = 0;
-    selections.measures.forEach(measureId => {
-        totalScore += calculateMeasureScore(mvpId, measureId);
-    });
-    
-    return selections.measures.length > 0 ? totalScore / selections.measures.length : 0;
-}
-function updateOverallScore() {
-    const activeMVPs = mvps.filter(mvp => 
-        assignments[mvp.mvp_id]?.length > 0 && 
-        mvpSelections[mvp.mvp_id]?.measures.length > 0
-    );
-    
-    let totalScore = 0;
-    let totalClinicians = 0;
-    let totalMeasures = 0;
-    
-    activeMVPs.forEach(mvp => {
-        const score = calculateMVPScore(mvp.mvp_id);
-        const clinicianCount = assignments[mvp.mvp_id].length;
-        totalScore += score * clinicianCount;
-        totalClinicians += clinicianCount;
-        
-        if (mvpSelections[mvp.mvp_id]) {
-            totalMeasures += mvpSelections[mvp.mvp_id].measures.length;
-        }
-    });
-    
-    const overallScore = totalClinicians > 0 ? totalScore / totalClinicians : 0;
-    
-    const displayEl = document.getElementById('overall-score-display');
-    if (displayEl) {
-        displayEl.textContent = overallScore.toFixed(1);
-    }
-    
-    const measuresEl = document.getElementById('total-measures');
-    if (measuresEl) {
-        measuresEl.textContent = totalMeasures;
-    }
-    
-    const pointsEl = document.getElementById('avg-points');
-    if (pointsEl) {
-        pointsEl.textContent = overallScore.toFixed(1);
-    }
-}
 function exportPlan() {
     const exportData = {
         timestamp: new Date().toISOString(),
         scenario: currentScenarioName,
         assignments: assignments,
         selections: mvpSelections,
-        performance: mvpPerformance
+        performance: mvpPerformance,
+        summary: {
+            total_clinicians: clinicians.length,
+            assigned: Object.values(assignments).flat().length,
+            active_mvps: Object.keys(assignments).filter(id => assignments[id]?.length > 0).length
+        }
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
