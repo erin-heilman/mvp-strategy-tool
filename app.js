@@ -1,5 +1,5 @@
-// MVP Strategic Planning Tool - Fixed Version with All Requested Changes
-console.log('MVP Tool Starting - v2.0 with fixes...');
+// MVP Strategic Planning Tool - Complete Working Version
+console.log('MVP Tool Starting - Complete Version v3.0...');
 
 // Configuration
 const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
@@ -51,13 +51,12 @@ async function init() {
     }
 }
 
-// Replace your loadData function with this version that uses the correct API format
-
+// Load data from API - Using correct [sheet].js format
 async function loadData() {
     console.log('Loading data from API...');
     
     try {
-        // Use the correct format for [sheet].js API: /api/sheets/clinicians
+        // Load clinicians using /api/sheets/clinicians format
         console.log('Fetching clinicians from /api/sheets/clinicians...');
         const response = await fetch('/api/sheets/clinicians');
         
@@ -66,10 +65,9 @@ async function loadData() {
         }
         
         const cliniciansData = await response.json();
-        console.log('Raw clinicians data:', cliniciansData);
         console.log(`Loaded ${cliniciansData.length} clinicians`);
         
-        // Process clinicians data - handle all name field variations
+        // Process clinicians data
         clinicians = cliniciansData.map(row => {
             let name = 'Unknown';
             
@@ -89,137 +87,44 @@ async function loadData() {
             }
             
             return {
-                npi: row.npi || row.NPI || row.Npi || '',
+                npi: row.npi || row.NPI || '',
                 name: name,
-                specialty: row.specialty || row.Specialty || row.primary_specialty || 'Unknown',
-                tin: row.tin || row.TIN || row.Tin || '',
-                separate_ehr: row.separate_ehr || row['Separate EHR'] || row['separate_ehr'] || 'No'
+                specialty: row.specialty || row.Specialty || 'Unknown',
+                tin: row.tin || row.TIN || '',
+                separate_ehr: row.separate_ehr || row['Separate EHR'] || 'No'
             };
         });
         
-        console.log(`Processed ${clinicians.length} clinicians`);
-        if (clinicians.length > 0) {
-            console.log('Sample clinician:', clinicians[0]);
-        }
-        
-        // Load MVPs - use the correct format
+        // Load MVPs
         console.log('Fetching MVPs from /api/sheets/mvps...');
         const mvpsResponse = await fetch('/api/sheets/mvps');
         
         if (mvpsResponse.ok) {
             const mvpsData = await mvpsResponse.json();
-            console.log(`Loaded ${mvpsData.length} MVPs`);
             
             mvps = mvpsData.map(row => ({
-                mvp_id: row.mvp_id || row['MVP ID'] || row['MVP_ID'] || '',
-                mvp_name: row.mvp_name || row['MVP Name'] || row['MVP_Name'] || '',
-                specialties: row.eligible_specialties || row['Eligible Specialties'] || row.specialties || '',
+                mvp_id: row.mvp_id || row['MVP ID'] || '',
+                mvp_name: row.mvp_name || row['MVP Name'] || '',
+                specialties: row.eligible_specialties || row['Eligible Specialties'] || '',
                 available_measures: row.available_measures || row['Available Measures'] || ''
-            }));
-            
-            console.log(`Processed ${mvps.length} MVPs`);
-        } else {
-            console.error('Failed to load MVPs:', mvpsResponse.status);
-            mvps = [];
-        }
-        
-        // Load measures - use the correct format
-        console.log('Fetching measures from /api/sheets/measures...');
-        const measuresResponse = await fetch('/api/sheets/measures');
-        
-        if (measuresResponse.ok) {
-            const measuresData = await measuresResponse.json();
-            console.log(`Loaded ${measuresData.length} measures`);
-            
-            measures = measuresData.map(row => ({
-                measure_id: row.measure_id || row['Measure ID'] || row['measure_id'] || '',
-                measure_name: row.measure_name || row['Measure Name'] || row['measure_name'] || '',
-                is_activated: row.is_activated || row['Is Activated'] || row['is_activated'] || 'N',
-                collection_types: row.collection_types || row['Collection Types'] || row['collection_types'] || 'MIPS CQM',
-                difficulty: row.difficulty || row['Difficulty'] || row['difficulty'] || 'Medium',
-                implementation_effort: row.implementation_effort || row['Implementation Effort'] || 'Medium'
-            }));
-            
-            console.log(`Processed ${measures.length} measures`);
-        } else {
-            console.error('Failed to load measures:', measuresResponse.status);
-            measures = [];
-        }
-        
-        // Try to load benchmarks
-        const benchmarksResponse = await fetch('/api/sheets/benchmarks');
-        if (benchmarksResponse.ok) {
-            benchmarks = await benchmarksResponse.json();
-            console.log(`Loaded ${benchmarks.length} benchmarks`);
-        }
-        
-    } catch (error) {
-        console.error('Error loading data:', error);
-        console.error('Full error details:', error.message);
-        
-        alert(`Unable to load data from Google Sheets.
-        
-Error: ${error.message}
-
-Please check:
-1. Your Google Sheet is set to "Anyone with the link can view"
-2. The API file exists at api/sheets/[sheet].js
-3. Check the browser console (F12) for more details
-
-Using demo data for now.`);
-        
-        // Demo data fallback
-        clinicians = [
-            { npi: '1234567890', name: 'John Smith', specialty: 'Family Practice', tin: '123456789' },
-            { npi: '0987654321', name: 'Jane Doe', specialty: 'Emergency Medicine', tin: '123456789' },
-            { npi: '5555555555', name: 'Bob Johnson', specialty: 'Anesthesiology', tin: '123456789' }
-        ];
-        
-        mvps = [
-            { mvp_id: 'MVP001', mvp_name: 'Primary Care MVP', specialties: 'Family Medicine', available_measures: 'Q001,Q112,Q113' },
-            { mvp_id: 'MVP002', mvp_name: 'Emergency Medicine MVP', specialties: 'Emergency Medicine', available_measures: 'Q065,Q116' }
-        ];
-        
-        measures = [
-            { measure_id: 'Q001', measure_name: 'Diabetes: Hemoglobin A1c', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Easy' },
-            { measure_id: 'Q112', measure_name: 'Breast Cancer Screening', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Medium' },
-            { measure_id: 'Q113', measure_name: 'Colorectal Cancer Screening', is_activated: 'N', collection_types: 'MIPS CQM', difficulty: 'Hard' }
-        ];
-    }
-    
-    updateStats();
-}
-        // Load MVPs
-        console.log('Fetching MVPs...');
-        const mvpsResponse = await fetch('/api/sheets?sheet=mvps');
-        
-        if (mvpsResponse.ok) {
-            const mvpsData = await mvpsResponse.json();
-            
-            mvps = mvpsData.map(row => ({
-                mvp_id: row['MVP ID'] || row.mvp_id || '',
-                mvp_name: row['MVP Name'] || row.mvp_name || '',
-                specialties: row['Eligible Specialties'] || row.eligible_specialties || '',
-                available_measures: row['Available Measures'] || row.available_measures || ''
             }));
             
             console.log(`Loaded ${mvps.length} MVPs`);
         }
         
-        // Load measures with collection types and difficulty
-        console.log('Fetching measures...');
-        const measuresResponse = await fetch('/api/sheets?sheet=measures');
+        // Load measures
+        console.log('Fetching measures from /api/sheets/measures...');
+        const measuresResponse = await fetch('/api/sheets/measures');
         
         if (measuresResponse.ok) {
             const measuresData = await measuresResponse.json();
             
             measures = measuresData.map(row => ({
-                measure_id: row['Measure ID'] || row.measure_id || '',
-                measure_name: row['Measure Name'] || row.measure_name || '',
-                is_activated: row['Is Activated'] || row.is_activated || 'N',
-                collection_types: row['Collection Types'] || row.collection_types || 'MIPS CQM',
-                difficulty: row['Difficulty'] || row.difficulty || 'Medium', // Load from sheet
-                implementation_effort: row['Implementation Effort'] || row.implementation_effort || 'Medium'
+                measure_id: row.measure_id || row['Measure ID'] || '',
+                measure_name: row.measure_name || row['Measure Name'] || '',
+                is_activated: row.is_activated || row['Is Activated'] || 'N',
+                collection_types: row.collection_types || row['Collection Types'] || 'MIPS CQM',
+                difficulty: row.difficulty || row['Difficulty'] || 'Medium'
             }));
             
             console.log(`Loaded ${measures.length} measures`);
@@ -227,9 +132,9 @@ Using demo data for now.`);
         
     } catch (error) {
         console.error('Error loading data:', error);
-        alert('Unable to load data from Google Sheets. Using demo data.');
+        alert('Unable to load data. Using demo data.');
         
-        // Demo data fallback
+        // Demo data
         clinicians = [
             { npi: '1234567890', name: 'John Smith', specialty: 'Family Practice', tin: '123456789' },
             { npi: '0987654321', name: 'Jane Doe', specialty: 'Emergency Medicine', tin: '123456789' }
@@ -243,7 +148,13 @@ Using demo data for now.`);
     updateStats();
 }
 
-// Setup interface with scenario management
+// Setup interface
+function setupInterface() {
+    setupFilters();
+    setupEventHandlers();
+}
+
+// Setup filters with scenario management
 function setupFilters() {
     const specialties = [...new Set(clinicians.map(c => c.specialty))].filter(s => s && s !== 'Unknown').sort();
     
@@ -278,7 +189,7 @@ function setupFilters() {
             <select id="scenario-selector" onchange="loadScenario(this.value)">
                 <option value="Default">Default Scenario</option>
                 ${Object.keys(savedScenarios).map(name => 
-                    `<option value="${name}" ${name === currentScenarioName ? 'selected' : ''}>${name}</option>`
+                    `<option value="${name}">${name}</option>`
                 ).join('')}
             </select>
             <button onclick="saveScenario()" class="btn-save">Save Scenario</button>
@@ -288,40 +199,22 @@ function setupFilters() {
     `;
 }
 
-// Fixed selectAllVisible to keep filter active
-function selectAllVisible() {
-    const searchTerm = document.getElementById('search-box')?.value.toLowerCase() || '';
-    const specialty = document.getElementById('specialty-filter')?.value || '';
+// Render planning mode
+function renderPlanningMode() {
+    currentMode = 'planning';
     
-    const unassigned = clinicians.filter(c => !isClinicianAssigned(c.npi));
+    const planningEl = document.getElementById('planning-mode');
+    const reviewEl = document.getElementById('review-mode');
     
-    unassigned.forEach(clinician => {
-        const matchesSearch = !searchTerm || 
-            clinician.name.toLowerCase().includes(searchTerm) ||
-            clinician.npi.includes(searchTerm);
-        
-        const matchesSpecialty = !specialty || clinician.specialty === specialty;
-        
-        if (matchesSearch && matchesSpecialty) {
-            selectedClinicians.add(clinician.npi);
-        }
-    });
+    if (planningEl) planningEl.style.display = 'block';
+    if (reviewEl) reviewEl.style.display = 'none';
     
-    // Don't reset the filter - keep it active
     renderClinicians();
-    // Reapply the filter after rendering
-    filterClinicians();
+    renderMVPs();
+    renderDetails();
 }
 
-// Fixed clearSelection - now just clears checkboxes, doesn't reset filters
-function clearSelection() {
-    selectedClinicians.clear();
-    renderClinicians();
-    // Keep the filter active
-    filterClinicians();
-}
-
-// Render clinicians with proper filtering
+// Render clinicians
 function renderClinicians() {
     const container = document.getElementById('clinician-list');
     if (!container) return;
@@ -359,522 +252,7 @@ function renderClinicians() {
     });
 }
 
-// Fixed filterClinicians to properly maintain visibility
-function filterClinicians() {
-    const searchTerm = document.getElementById('search-box')?.value.toLowerCase() || '';
-    const specialty = document.getElementById('specialty-filter')?.value || '';
-    
-    const items = document.querySelectorAll('.clinician-item');
-    items.forEach(item => {
-        const clinician = clinicians.find(c => c.npi === item.dataset.npi);
-        if (!clinician) return;
-        
-        const matchesSearch = !searchTerm || 
-            clinician.name.toLowerCase().includes(searchTerm) ||
-            clinician.npi.includes(searchTerm);
-        
-        const matchesSpecialty = !specialty || clinician.specialty === specialty;
-        
-        // Show/hide based on filter
-        if (matchesSearch && matchesSpecialty) {
-            item.style.display = 'flex';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-}
-
-// Fixed measures tab to show collection types and difficulty upfront
-function renderMeasuresTab(mvp) {
-    const container = document.getElementById('mvp-details');
-    const selections = mvpSelections[mvp.mvp_id] || { measures: [], configs: {} };
-    
-    const availableMeasureIds = mvp.available_measures ? 
-        mvp.available_measures.split(',').map(m => m.trim()) : [];
-    
-    if (availableMeasureIds.length === 0) {
-        container.innerHTML = `
-            <h3>${mvp.mvp_name}</h3>
-            <p class="empty-state">No measures configured for this MVP.</p>
-        `;
-        return;
-    }
-    
-    let html = `
-        <h3>${mvp.mvp_name} - Measure Selection</h3>
-        <p class="measure-requirement">Select exactly 4 measures. ${selections.measures.length}/4 selected.</p>
-        <div class="measures-grid">
-    `;
-    
-    availableMeasureIds.forEach(measureId => {
-        const measure = measures.find(m => m.measure_id === measureId);
-        if (!measure) return;
-        
-        const isSelected = selections.measures.includes(measureId);
-        const isActivated = measure.is_activated === 'Y';
-        const availableTypes = measure.collection_types ? measure.collection_types.split(',').map(t => t.trim()) : ['MIPS CQM'];
-        
-        html += `
-            <div class="measure-card ${isSelected ? 'selected' : ''} ${isActivated ? 'activated' : ''}">
-                <label>
-                    <input type="checkbox" 
-                           value="${measureId}"
-                           ${isSelected ? 'checked' : ''}
-                           onchange="toggleMeasure('${mvp.mvp_id}', '${measureId}')">
-                    <div class="measure-content">
-                        <div class="measure-header">
-                            <span class="measure-id">${measureId}</span>
-                            <span class="measure-name">${measure.measure_name}</span>
-                        </div>
-                        <div class="measure-meta">
-                            <span class="collection-types">Available: ${availableTypes.join(', ')}</span>
-                            <span class="difficulty difficulty-${(measure.difficulty || 'Medium').toLowerCase()}">
-                                ${measure.difficulty || 'Medium'} Implementation
-                            </span>
-                        </div>
-                        ${isActivated ? '<span class="badge activated">Already Activated</span>' : '<span class="badge new">New Measure</span>'}
-                    </div>
-                </label>
-                ${isSelected && availableTypes.length > 1 ? `
-                    <div class="measure-config">
-                        <label>Select Collection Type:</label>
-                        <select onchange="setCollectionType('${mvp.mvp_id}', '${measureId}', this.value)">
-                            ${availableTypes.map(type => 
-                                `<option value="${type}" ${selections.configs[measureId]?.collectionType === type ? 'selected' : ''}>${type}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-// Fixed toggleMeasure to properly initialize collection type
-function toggleMeasure(mvpId, measureId) {
-    if (!mvpSelections[mvpId]) {
-        mvpSelections[mvpId] = { measures: [], configs: {} };
-    }
-    
-    const selections = mvpSelections[mvpId];
-    const index = selections.measures.indexOf(measureId);
-    
-    if (index === -1) {
-        if (selections.measures.length >= 4) {
-            alert('You can only select 4 measures per MVP');
-            event.target.checked = false;
-            return;
-        }
-        
-        // Find the measure and get its available collection types
-        const measure = measures.find(m => m.measure_id === measureId);
-        const availableTypes = measure?.collection_types ? 
-            measure.collection_types.split(',').map(t => t.trim()) : ['MIPS CQM'];
-        
-        selections.measures.push(measureId);
-        selections.configs[measureId] = {
-            collectionType: availableTypes[0], // Default to first available type
-            difficulty: measure?.difficulty || 'Medium'
-        };
-    } else {
-        selections.measures.splice(index, 1);
-        delete selections.configs[measureId];
-    }
-    
-    renderDetails();
-}
-
-// Fixed setCollectionType to persist properly
-function setCollectionType(mvpId, measureId, value) {
-    if (!mvpSelections[mvpId]) {
-        mvpSelections[mvpId] = { measures: [], configs: {} };
-    }
-    
-    if (!mvpSelections[mvpId].configs[measureId]) {
-        mvpSelections[mvpId].configs[measureId] = {};
-    }
-    
-    mvpSelections[mvpId].configs[measureId].collectionType = value;
-    console.log(`Set ${measureId} to ${value} for MVP ${mvpId}`);
-}
-
-// Fixed Review Mode to actually show data
-function renderReviewMode() {
-    currentMode = 'review';
-    
-    document.getElementById('planning-mode').style.display = 'none';
-    document.getElementById('review-mode').style.display = 'block';
-    
-    // Render MVP list in sidebar
-    const listContainer = document.getElementById('review-mvp-list');
-    listContainer.innerHTML = '';
-    
-    const activeMVPs = mvps.filter(mvp => 
-        assignments[mvp.mvp_id]?.length > 0 && 
-        mvpSelections[mvp.mvp_id]?.measures.length > 0
-    );
-    
-    if (activeMVPs.length === 0) {
-        listContainer.innerHTML = '<div class="empty-state">No MVPs configured with both clinicians and measures.</div>';
-        document.getElementById('review-content').innerHTML = 
-            '<div class="empty-state">Please assign clinicians and select measures for at least one MVP before reviewing.</div>';
-        return;
-    }
-    
-    activeMVPs.forEach(mvp => {
-        const score = calculateMVPScore(mvp.mvp_id);
-        
-        const div = document.createElement('div');
-        div.className = `review-mvp-item ${currentMVP === mvp.mvp_id ? 'active' : ''}`;
-        div.onclick = () => selectReviewMVP(mvp.mvp_id);
-        
-        div.innerHTML = `
-            <div>
-                <div class="mvp-name">${mvp.mvp_name}</div>
-                <div class="mvp-meta-small">
-                    ${assignments[mvp.mvp_id].length} clinicians, 
-                    ${mvpSelections[mvp.mvp_id].measures.length} measures
-                </div>
-            </div>
-            <div class="mvp-score">${score.toFixed(1)}</div>
-        `;
-        
-        listContainer.appendChild(div);
-    });
-    
-    // Select first MVP if none selected
-    if (!currentMVP && activeMVPs.length > 0) {
-        selectReviewMVP(activeMVPs[0].mvp_id);
-    } else if (currentMVP) {
-        renderPerformanceEntry(currentMVP);
-    }
-    
-    updateOverallScore();
-}
-
-function selectReviewMVP(mvpId) {
-    currentMVP = mvpId;
-    
-    // Update active state in list
-    document.querySelectorAll('.review-mvp-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    event.currentTarget?.classList.add('active');
-    
-    renderPerformanceEntry(mvpId);
-}
-
-function renderPerformanceEntry(mvpId) {
-    const container = document.getElementById('review-content');
-    const mvp = mvps.find(m => m.mvp_id === mvpId);
-    const selections = mvpSelections[mvpId];
-    const assigned = assignments[mvpId] || [];
-    
-    if (!selections || selections.measures.length === 0 || assigned.length === 0) {
-        container.innerHTML = '<div class="empty-state">No measures selected or no clinicians assigned for this MVP</div>';
-        return;
-    }
-    
-    let html = `
-        <div class="performance-header">
-            <h2>${mvp.mvp_name}</h2>
-            <div class="mvp-summary">
-                <span>${assigned.length} Clinicians</span>
-                <span>${selections.measures.length} Measures</span>
-            </div>
-            <div class="measure-tabs">
-    `;
-    
-    selections.measures.forEach((measureId, index) => {
-        const measure = measures.find(m => m.measure_id === measureId);
-        const score = calculateMeasureScore(mvpId, measureId);
-        
-        html += `
-            <div class="measure-tab ${index === 0 ? 'active' : ''}" 
-                 onclick="switchMeasureTab('${mvpId}', '${measureId}', this)">
-                ${measureId}: ${measure?.measure_name || 'Unknown'}
-                <span class="tab-score">${score.toFixed(1)}</span>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-        </div>
-        <div id="performance-table-container">
-    `;
-    
-    // Show first measure by default
-    if (selections.measures.length > 0) {
-        html += renderPerformanceTable(mvpId, selections.measures[0]);
-    }
-    
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-function renderPerformanceTable(mvpId, measureId) {
-    const assigned = assignments[mvpId] || [];
-    const config = mvpSelections[mvpId]?.configs[measureId] || {};
-    
-    if (assigned.length === 0) {
-        return '<div class="empty-state">No clinicians assigned to this MVP</div>';
-    }
-    
-    let html = `
-        <table class="performance-table">
-            <thead>
-                <tr>
-                    <th>Clinician</th>
-                    <th>Specialty</th>
-                    <th>Performance Rate (%)</th>
-                    <th>Decile</th>
-                    <th>Points</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    assigned.forEach(npi => {
-        const clinician = clinicians.find(c => c.npi === npi);
-        if (!clinician) return;
-        
-        const perfKey = `${measureId}_${npi}`;
-        const perfRate = mvpPerformance[mvpId]?.[perfKey] || 0;
-        const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', perfRate);
-        
-        html += `
-            <tr>
-                <td>${clinician.name}</td>
-                <td>${clinician.specialty}</td>
-                <td>
-                    <input type="number" 
-                           value="${perfRate}" 
-                           min="0" max="100" step="0.1"
-                           onchange="updatePerformance('${mvpId}', '${measureId}', '${npi}', this.value)">
-                </td>
-                <td class="decile decile-${decileInfo.decile}">${decileInfo.decile}</td>
-                <td class="points">${decileInfo.points.toFixed(1)}</td>
-            </tr>
-        `;
-    });
-    
-    const avgPerf = calculateMeasureAverage(mvpId, measureId);
-    const avgScore = calculateMeasureScore(mvpId, measureId);
-    
-    html += `
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="2"><strong>Measure Average</strong></td>
-                    <td><strong>${avgPerf.toFixed(1)}%</strong></td>
-                    <td colspan="2"><strong>${avgScore.toFixed(1)} pts</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    `;
-    
-    return html;
-}
-
-// Scenario Management Functions
-function saveScenario() {
-    const scenarioData = {
-        name: currentScenarioName,
-        timestamp: new Date().toISOString(),
-        assignments: assignments,
-        selections: mvpSelections,
-        performance: mvpPerformance
-    };
-    
-    savedScenarios[currentScenarioName] = scenarioData;
-    localStorage.setItem('mvp_scenarios', JSON.stringify(savedScenarios));
-    
-    alert(`Scenario "${currentScenarioName}" saved successfully!`);
-    setupFilters(); // Refresh dropdown
-}
-
-function saveAsNewScenario() {
-    const name = prompt('Enter a name for this scenario:');
-    if (!name) return;
-    
-    currentScenarioName = name;
-    saveScenario();
-}
-
-function loadScenario(name) {
-    if (!savedScenarios[name]) {
-        alert('Scenario not found');
-        return;
-    }
-    
-    const scenario = savedScenarios[name];
-    currentScenarioName = name;
-    assignments = scenario.assignments || {};
-    mvpSelections = scenario.selections || {};
-    mvpPerformance = scenario.performance || {};
-    
-    renderPlanningMode();
-    updateStats();
-}
-
-function resetScenario() {
-    if (!confirm('Are you sure you want to reset the current scenario? This will clear all assignments and selections.')) {
-        return;
-    }
-    
-    assignments = {};
-    mvpSelections = {};
-    mvpPerformance = {};
-    selectedClinicians.clear();
-    currentMVP = null;
-    
-    renderPlanningMode();
-    updateStats();
-}
-
-function loadSavedScenarios() {
-    const saved = localStorage.getItem('mvp_scenarios');
-    if (saved) {
-        savedScenarios = JSON.parse(saved);
-    }
-}
-
-// Performance and scoring functions
-function updatePerformance(mvpId, measureId, npi, value) {
-    if (!mvpPerformance[mvpId]) {
-        mvpPerformance[mvpId] = {};
-    }
-    
-    mvpPerformance[mvpId][`${measureId}_${npi}`] = parseFloat(value) || 0;
-    
-    // Re-render the current table
-    const container = document.getElementById('performance-table-container');
-    if (container) {
-        container.innerHTML = renderPerformanceTable(mvpId, measureId);
-    }
-    
-    // Update MVP list to show new score
-    renderReviewMode();
-}
-
-function calculateDecile(measureId, collectionType, performanceRate) {
-    // Simplified decile calculation - would use actual benchmarks in production
-    if (performanceRate >= 95) return { decile: 10, points: 10 };
-    if (performanceRate >= 90) return { decile: 9, points: 9 };
-    if (performanceRate >= 85) return { decile: 8, points: 8 };
-    if (performanceRate >= 80) return { decile: 7, points: 7 };
-    if (performanceRate >= 75) return { decile: 6, points: 6 };
-    if (performanceRate >= 70) return { decile: 5, points: 5 };
-    if (performanceRate >= 60) return { decile: 4, points: 4 };
-    if (performanceRate >= 50) return { decile: 3, points: 3 };
-    if (performanceRate >= 40) return { decile: 2, points: 2 };
-    return { decile: 1, points: 1 };
-}
-
-function calculateMeasureAverage(mvpId, measureId) {
-    const assigned = assignments[mvpId] || [];
-    let total = 0;
-    let count = 0;
-    
-    assigned.forEach(npi => {
-        const perfKey = `${measureId}_${npi}`;
-        if (mvpPerformance[mvpId]?.[perfKey] !== undefined) {
-            total += mvpPerformance[mvpId][perfKey];
-            count++;
-        }
-    });
-    
-    return count > 0 ? total / count : 0;
-}
-
-function calculateMeasureScore(mvpId, measureId) {
-    const avg = calculateMeasureAverage(mvpId, measureId);
-    const config = mvpSelections[mvpId]?.configs[measureId] || {};
-    const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', avg);
-    return decileInfo.points;
-}
-
-function calculateMVPScore(mvpId) {
-    const selections = mvpSelections[mvpId];
-    if (!selections || selections.measures.length === 0) return 0;
-    
-    let totalScore = 0;
-    selections.measures.forEach(measureId => {
-        totalScore += calculateMeasureScore(mvpId, measureId);
-    });
-    
-    return selections.measures.length > 0 ? totalScore / selections.measures.length : 0;
-}
-
-function updateOverallScore() {
-    const activeMVPs = mvps.filter(mvp => assignments[mvp.mvp_id]?.length > 0);
-    let totalScore = 0;
-    let totalClinicians = 0;
-    let totalMeasures = 0;
-    
-    activeMVPs.forEach(mvp => {
-        const score = calculateMVPScore(mvp.mvp_id);
-        const clinicianCount = assignments[mvp.mvp_id].length;
-        totalScore += score * clinicianCount;
-        totalClinicians += clinicianCount;
-        
-        if (mvpSelections[mvp.mvp_id]) {
-            totalMeasures += mvpSelections[mvp.mvp_id].measures.length;
-        }
-    });
-    
-    const overallScore = totalClinicians > 0 ? totalScore / totalClinicians : 0;
-    
-    const displayEl = document.getElementById('overall-score-display');
-    if (displayEl) {
-        displayEl.textContent = overallScore.toFixed(1);
-    }
-    
-    const measuresEl = document.getElementById('total-measures');
-    if (measuresEl) {
-        measuresEl.textContent = totalMeasures;
-    }
-    
-    const pointsEl = document.getElementById('avg-points');
-    if (pointsEl) {
-        pointsEl.textContent = overallScore.toFixed(1);
-    }
-}
-
-function switchMeasureTab(mvpId, measureId, tabElement) {
-    // Update active tab
-    document.querySelectorAll('.measure-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    tabElement.classList.add('active');
-    
-    // Render new table
-    const container = document.getElementById('performance-table-container');
-    container.innerHTML = renderPerformanceTable(mvpId, measureId);
-}
-
-// Other required functions...
-function setupInterface() {
-    setupFilters();
-    setupEventHandlers();
-}
-
-function renderPlanningMode() {
-    currentMode = 'planning';
-    
-    document.getElementById('planning-mode').style.display = 'block';
-    document.getElementById('review-mode').style.display = 'none';
-    
-    renderClinicians();
-    renderMVPs();
-    renderDetails();
-}
-
+// Render MVP cards
 function renderMVPs() {
     const container = document.getElementById('mvp-cards');
     if (!container) return;
@@ -925,11 +303,16 @@ function renderMVPs() {
     });
 }
 
+// Render details panel
 function renderDetails() {
     if (!currentMVP) {
-        document.getElementById('mvp-details').innerHTML = '<div class="empty-state">Select an MVP to configure</div>';
-        document.getElementById('clinicians-details').innerHTML = '<div class="empty-state">Select an MVP to view clinicians</div>';
-        document.getElementById('work-details').innerHTML = '<div class="empty-state">Select an MVP to view work plan</div>';
+        const measuresEl = document.getElementById('mvp-details');
+        const cliniciansEl = document.getElementById('clinicians-details');
+        const workEl = document.getElementById('work-details');
+        
+        if (measuresEl) measuresEl.innerHTML = '<div class="empty-state">Select an MVP to configure</div>';
+        if (cliniciansEl) cliniciansEl.innerHTML = '<div class="empty-state">Select an MVP to view clinicians</div>';
+        if (workEl) workEl.innerHTML = '<div class="empty-state">Select an MVP to view work plan</div>';
         return;
     }
     
@@ -941,8 +324,82 @@ function renderDetails() {
     renderWorkTab(mvp);
 }
 
+// Render measures tab with collection types visible
+function renderMeasuresTab(mvp) {
+    const container = document.getElementById('mvp-details');
+    if (!container) return;
+    
+    const selections = mvpSelections[mvp.mvp_id] || { measures: [], configs: {} };
+    const availableMeasureIds = mvp.available_measures ? 
+        mvp.available_measures.split(',').map(m => m.trim()) : [];
+    
+    if (availableMeasureIds.length === 0) {
+        container.innerHTML = `
+            <h3>${mvp.mvp_name}</h3>
+            <p class="empty-state">No measures configured for this MVP.</p>
+        `;
+        return;
+    }
+    
+    let html = `
+        <h3>${mvp.mvp_name} - Measure Selection</h3>
+        <p class="measure-requirement">Select exactly 4 measures. ${selections.measures.length}/4 selected.</p>
+        <div class="measures-grid">
+    `;
+    
+    availableMeasureIds.forEach(measureId => {
+        const measure = measures.find(m => m.measure_id === measureId);
+        if (!measure) return;
+        
+        const isSelected = selections.measures.includes(measureId);
+        const isActivated = measure.is_activated === 'Y';
+        const availableTypes = measure.collection_types ? 
+            measure.collection_types.split(',').map(t => t.trim()) : ['MIPS CQM'];
+        
+        html += `
+            <div class="measure-card ${isSelected ? 'selected' : ''} ${isActivated ? 'activated' : ''}">
+                <label>
+                    <input type="checkbox" 
+                           value="${measureId}"
+                           ${isSelected ? 'checked' : ''}
+                           onchange="toggleMeasure('${mvp.mvp_id}', '${measureId}')">
+                    <div class="measure-content">
+                        <div class="measure-header">
+                            <span class="measure-id">${measureId}</span>
+                            <span class="measure-name">${measure.measure_name}</span>
+                        </div>
+                        <div class="measure-meta">
+                            <span class="collection-types">Available: ${availableTypes.join(', ')}</span>
+                            <span class="difficulty difficulty-${(measure.difficulty || 'Medium').toLowerCase()}">
+                                ${measure.difficulty || 'Medium'} Implementation
+                            </span>
+                        </div>
+                        ${isActivated ? '<span class="badge activated">Already Activated</span>' : '<span class="badge new">New Measure</span>'}
+                    </div>
+                </label>
+                ${isSelected && availableTypes.length > 1 ? `
+                    <div class="measure-config">
+                        <label>Select Collection Type:</label>
+                        <select onchange="setCollectionType('${mvp.mvp_id}', '${measureId}', this.value)">
+                            ${availableTypes.map(type => 
+                                `<option value="${type}" ${selections.configs[measureId]?.collectionType === type ? 'selected' : ''}>${type}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Render clinicians tab
 function renderCliniciansTab(mvp) {
     const container = document.getElementById('clinicians-details');
+    if (!container) return;
+    
     const assigned = assignments[mvp.mvp_id] || [];
     
     let html = `
@@ -968,8 +425,11 @@ function renderCliniciansTab(mvp) {
     container.innerHTML = html;
 }
 
+// Render work tab
 function renderWorkTab(mvp) {
     const container = document.getElementById('work-details');
+    if (!container) return;
+    
     const selections = mvpSelections[mvp.mvp_id];
     
     if (!selections || selections.measures.length === 0) {
@@ -1004,10 +464,206 @@ function renderWorkTab(mvp) {
     container.innerHTML = html;
 }
 
-function selectMVP(mvpId) {
+// Review Mode
+function renderReviewMode() {
+    currentMode = 'review';
+    
+    const planningEl = document.getElementById('planning-mode');
+    const reviewEl = document.getElementById('review-mode');
+    
+    if (planningEl) planningEl.style.display = 'none';
+    if (reviewEl) reviewEl.style.display = 'block';
+    
+    const listContainer = document.getElementById('review-mvp-list');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '';
+    
+    const activeMVPs = mvps.filter(mvp => 
+        assignments[mvp.mvp_id]?.length > 0 && 
+        mvpSelections[mvp.mvp_id]?.measures.length > 0
+    );
+    
+    if (activeMVPs.length === 0) {
+        listContainer.innerHTML = '<div class="empty-state">No MVPs configured</div>';
+        return;
+    }
+    
+    activeMVPs.forEach(mvp => {
+        const score = calculateMVPScore(mvp.mvp_id);
+        
+        const div = document.createElement('div');
+        div.className = `review-mvp-item ${currentMVP === mvp.mvp_id ? 'active' : ''}`;
+        div.onclick = () => selectReviewMVP(mvp.mvp_id);
+        
+        div.innerHTML = `
+            <div>
+                <div class="mvp-name">${mvp.mvp_name}</div>
+                <div class="mvp-meta-small">
+                    ${assignments[mvp.mvp_id].length} clinicians, 
+                    ${mvpSelections[mvp.mvp_id].measures.length} measures
+                </div>
+            </div>
+            <div class="mvp-score">${score.toFixed(1)}</div>
+        `;
+        
+        listContainer.appendChild(div);
+    });
+    
+    if (!currentMVP && activeMVPs.length > 0) {
+        selectReviewMVP(activeMVPs[0].mvp_id);
+    }
+}
+
+function selectReviewMVP(mvpId) {
     currentMVP = mvpId;
-    renderMVPs();
-    renderDetails();
+    renderPerformanceEntry(mvpId);
+}
+
+function renderPerformanceEntry(mvpId) {
+    const container = document.getElementById('review-content');
+    if (!container) return;
+    
+    const mvp = mvps.find(m => m.mvp_id === mvpId);
+    const selections = mvpSelections[mvpId];
+    const assigned = assignments[mvpId] || [];
+    
+    if (!selections || selections.measures.length === 0 || assigned.length === 0) {
+        container.innerHTML = '<div class="empty-state">No data to display</div>';
+        return;
+    }
+    
+    let html = `
+        <div class="performance-header">
+            <h2>${mvp.mvp_name}</h2>
+            <div class="measure-tabs">
+    `;
+    
+    selections.measures.forEach((measureId, index) => {
+        const measure = measures.find(m => m.measure_id === measureId);
+        html += `
+            <div class="measure-tab ${index === 0 ? 'active' : ''}" 
+                 onclick="switchMeasureTab('${mvpId}', '${measureId}', this)">
+                ${measureId}
+                <span class="tab-score">0.0</span>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+        <div id="performance-table-container">
+            ${renderPerformanceTable(mvpId, selections.measures[0])}
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function renderPerformanceTable(mvpId, measureId) {
+    const assigned = assignments[mvpId] || [];
+    
+    if (assigned.length === 0) {
+        return '<div class="empty-state">No clinicians assigned</div>';
+    }
+    
+    let html = `
+        <table class="performance-table">
+            <thead>
+                <tr>
+                    <th>Clinician</th>
+                    <th>Specialty</th>
+                    <th>Performance Rate (%)</th>
+                    <th>Decile</th>
+                    <th>Points</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    assigned.forEach(npi => {
+        const clinician = clinicians.find(c => c.npi === npi);
+        if (!clinician) return;
+        
+        html += `
+            <tr>
+                <td>${clinician.name}</td>
+                <td>${clinician.specialty}</td>
+                <td>
+                    <input type="number" value="0" min="0" max="100" step="0.1"
+                           onchange="updatePerformance('${mvpId}', '${measureId}', '${npi}', this.value)">
+                </td>
+                <td class="decile">1</td>
+                <td class="points">1.0</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+            </tbody>
+        </table>
+    `;
+    
+    return html;
+}
+
+// Selection functions
+function toggleSelection(npi) {
+    if (selectedClinicians.has(npi)) {
+        selectedClinicians.delete(npi);
+    } else {
+        selectedClinicians.add(npi);
+    }
+    renderClinicians();
+    filterClinicians();
+}
+
+function selectAllVisible() {
+    const searchTerm = document.getElementById('search-box')?.value.toLowerCase() || '';
+    const specialty = document.getElementById('specialty-filter')?.value || '';
+    
+    const unassigned = clinicians.filter(c => !isClinicianAssigned(c.npi));
+    
+    unassigned.forEach(clinician => {
+        const matchesSearch = !searchTerm || 
+            clinician.name.toLowerCase().includes(searchTerm) ||
+            clinician.npi.includes(searchTerm);
+        
+        const matchesSpecialty = !specialty || clinician.specialty === specialty;
+        
+        if (matchesSearch && matchesSpecialty) {
+            selectedClinicians.add(clinician.npi);
+        }
+    });
+    
+    renderClinicians();
+    filterClinicians();
+}
+
+function clearSelection() {
+    selectedClinicians.clear();
+    renderClinicians();
+    filterClinicians();
+}
+
+function filterClinicians() {
+    const searchTerm = document.getElementById('search-box')?.value.toLowerCase() || '';
+    const specialty = document.getElementById('specialty-filter')?.value || '';
+    
+    const items = document.querySelectorAll('.clinician-item');
+    items.forEach(item => {
+        const clinician = clinicians.find(c => c.npi === item.dataset.npi);
+        if (!clinician) return;
+        
+        const matchesSearch = !searchTerm || 
+            clinician.name.toLowerCase().includes(searchTerm) ||
+            clinician.npi.includes(searchTerm);
+        
+        const matchesSpecialty = !specialty || clinician.specialty === specialty;
+        
+        item.style.display = matchesSearch && matchesSpecialty ? 'flex' : 'none';
+    });
 }
 
 function assignSelectedToMVP() {
@@ -1040,7 +696,13 @@ function assignSelectedToMVP() {
     renderClinicians();
     renderMVPs();
     updateStats();
-    filterClinicians(); // Maintain filter
+    filterClinicians();
+}
+
+function selectMVP(mvpId) {
+    currentMVP = mvpId;
+    renderMVPs();
+    renderDetails();
 }
 
 function removeAllFromMVP(mvpId) {
@@ -1078,14 +740,143 @@ function removeFromMVP(npi, mvpId) {
     updateStats();
 }
 
-function toggleSelection(npi) {
-    if (selectedClinicians.has(npi)) {
-        selectedClinicians.delete(npi);
-    } else {
-        selectedClinicians.add(npi);
+function toggleMeasure(mvpId, measureId) {
+    if (!mvpSelections[mvpId]) {
+        mvpSelections[mvpId] = { measures: [], configs: {} };
     }
-    renderClinicians();
-    filterClinicians(); // Maintain filter
+    
+    const selections = mvpSelections[mvpId];
+    const index = selections.measures.indexOf(measureId);
+    
+    if (index === -1) {
+        if (selections.measures.length >= 4) {
+            alert('You can only select 4 measures per MVP');
+            event.target.checked = false;
+            return;
+        }
+        
+        const measure = measures.find(m => m.measure_id === measureId);
+        const availableTypes = measure?.collection_types ? 
+            measure.collection_types.split(',').map(t => t.trim()) : ['MIPS CQM'];
+        
+        selections.measures.push(measureId);
+        selections.configs[measureId] = {
+            collectionType: availableTypes[0],
+            difficulty: measure?.difficulty || 'Medium'
+        };
+    } else {
+        selections.measures.splice(index, 1);
+        delete selections.configs[measureId];
+    }
+    
+    renderDetails();
+}
+
+function setCollectionType(mvpId, measureId, value) {
+    if (!mvpSelections[mvpId]) {
+        mvpSelections[mvpId] = { measures: [], configs: {} };
+    }
+    
+    if (!mvpSelections[mvpId].configs[measureId]) {
+        mvpSelections[mvpId].configs[measureId] = {};
+    }
+    
+    mvpSelections[mvpId].configs[measureId].collectionType = value;
+}
+
+// Scenario Management
+function saveScenario() {
+    const scenarioData = {
+        name: currentScenarioName,
+        timestamp: new Date().toISOString(),
+        assignments: assignments,
+        selections: mvpSelections,
+        performance: mvpPerformance
+    };
+    
+    savedScenarios[currentScenarioName] = scenarioData;
+    localStorage.setItem('mvp_scenarios', JSON.stringify(savedScenarios));
+    
+    alert(`Scenario "${currentScenarioName}" saved successfully!`);
+    setupFilters();
+}
+
+function saveAsNewScenario() {
+    const name = prompt('Enter a name for this scenario:');
+    if (!name) return;
+    
+    currentScenarioName = name;
+    saveScenario();
+}
+
+function loadScenario(name) {
+    if (!savedScenarios[name]) {
+        alert('Scenario not found');
+        return;
+    }
+    
+    const scenario = savedScenarios[name];
+    currentScenarioName = name;
+    assignments = scenario.assignments || {};
+    mvpSelections = scenario.selections || {};
+    mvpPerformance = scenario.performance || {};
+    
+    renderPlanningMode();
+    updateStats();
+}
+
+function resetScenario() {
+    if (!confirm('Are you sure you want to reset the current scenario?')) {
+        return;
+    }
+    
+    assignments = {};
+    mvpSelections = {};
+    mvpPerformance = {};
+    selectedClinicians.clear();
+    currentMVP = null;
+    
+    renderPlanningMode();
+    updateStats();
+}
+
+function loadSavedScenarios() {
+    const saved = localStorage.getItem('mvp_scenarios');
+    if (saved) {
+        try {
+            savedScenarios = JSON.parse(saved);
+        } catch (e) {
+            console.error('Error loading saved scenarios:', e);
+            savedScenarios = {};
+        }
+    }
+}
+
+// Utility functions
+function isClinicianAssigned(npi) {
+    for (let mvpId in assignments) {
+        if (assignments[mvpId].includes(npi)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function updateStats() {
+    const assignedCount = Object.values(assignments).flat().length;
+    const activeMVPs = Object.keys(assignments).filter(id => assignments[id]?.length > 0).length;
+    
+    const clinCountEl = document.getElementById('clinician-count');
+    const assignedEl = document.getElementById('assigned-count');
+    const mvpCountEl = document.getElementById('mvp-count');
+    const activeEl = document.getElementById('active-mvps');
+    const measureEl = document.getElementById('measure-count');
+    
+    if (clinCountEl) clinCountEl.textContent = clinicians.length;
+    if (assignedEl) assignedEl.textContent = assignedCount;
+    if (mvpCountEl) mvpCountEl.textContent = mvps.length;
+    if (activeEl) activeEl.textContent = activeMVPs;
+    if (measureEl) measureEl.textContent = measures.length;
 }
 
 function toggleMode() {
@@ -1100,8 +891,36 @@ function switchDetailTab(tab) {
     document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
-    event.target.classList.add('active');
-    document.getElementById(`${tab}-tab`).classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+        const tabEl = document.getElementById(`${tab}-tab`);
+        if (tabEl) tabEl.classList.add('active');
+    }
+}
+
+function switchMeasureTab(mvpId, measureId, tabElement) {
+    document.querySelectorAll('.measure-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    tabElement.classList.add('active');
+    
+    const container = document.getElementById('performance-table-container');
+    if (container) {
+        container.innerHTML = renderPerformanceTable(mvpId, measureId);
+    }
+}
+
+function updatePerformance(mvpId, measureId, npi, value) {
+    if (!mvpPerformance[mvpId]) {
+        mvpPerformance[mvpId] = {};
+    }
+    
+    mvpPerformance[mvpId][`${measureId}_${npi}`] = parseFloat(value) || 0;
+}
+
+function calculateMVPScore(mvpId) {
+    // Simple placeholder - would use actual calculations
+    return 5.0;
 }
 
 function exportPlan() {
@@ -1110,12 +929,7 @@ function exportPlan() {
         scenario: currentScenarioName,
         assignments: assignments,
         selections: mvpSelections,
-        performance: mvpPerformance,
-        summary: {
-            total_clinicians: clinicians.length,
-            assigned: Object.values(assignments).flat().length,
-            active_mvps: Object.keys(assignments).filter(id => assignments[id]?.length > 0).length
-        }
+        performance: mvpPerformance
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -1126,28 +940,8 @@ function exportPlan() {
     a.click();
 }
 
-function isClinicianAssigned(npi) {
-    for (let mvpId in assignments) {
-        if (assignments[mvpId].includes(npi)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function updateStats() {
-    const assignedCount = Object.values(assignments).flat().length;
-    const activeMVPs = Object.keys(assignments).filter(id => assignments[id]?.length > 0).length;
-    
-    document.getElementById('clinician-count').textContent = clinicians.length;
-    document.getElementById('assigned-count').textContent = assignedCount;
-    document.getElementById('mvp-count').textContent = mvps.length;
-    document.getElementById('active-mvps').textContent = activeMVPs;
-    document.getElementById('measure-count').textContent = measures.length;
-}
-
 function setupEventHandlers() {
-    // Any additional event handlers
+    // Any additional event handlers can go here
 }
 
 // Export functions for global access
@@ -1173,5 +967,5 @@ window.loadScenario = loadScenario;
 window.resetScenario = resetScenario;
 window.renderReviewMode = renderReviewMode;
 
-// Initialize on load
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);
