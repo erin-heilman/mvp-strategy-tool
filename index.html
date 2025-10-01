@@ -886,6 +886,111 @@
     border-radius: 4px;
     background: white;
 }
+        /* Fix dark gray text in Review MVP list */
+.review-mvp-item .mvp-meta-small {
+    color: #6c757d !important;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.review-mvp-item.active .mvp-meta-small {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Make measure tabs more readable */
+.measure-tab {
+    padding: 10px 15px;
+    font-size: 13px;
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.measure-tab:hover {
+    background: #f8f9fa;
+}
+
+.measure-tab.active {
+    font-weight: 600;
+}
+
+/* Improve performance table styling */
+.performance-table {
+    width: 100%;
+    margin-top: 20px;
+}
+
+.performance-table input[type="number"] {
+    width: 100px;
+    text-align: center;
+}
+
+/* Better decile colors */
+.decile {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.decile-10 {
+    background: #00695c;
+    color: white;
+}
+
+.decile-9 {
+    background: #00897b;
+    color: white;
+}
+
+.decile-8 {
+    background: #26a69a;
+    color: white;
+}
+
+.decile-7 {
+    background: #66bb6a;
+    color: white;
+}
+
+.decile-6 {
+    background: #9ccc65;
+    color: dark;
+}
+
+.decile-5 {
+    background: #ffee58;
+    color: dark;
+}
+
+.decile-4 {
+    background: #ffca28;
+    color: dark;
+}
+
+.decile-3 {
+    background: #ffa726;
+    color: white;
+}
+
+.decile-2 {
+    background: #ff7043;
+    color: white;
+}
+
+.decile-1 {
+    background: #ef5350;
+    color: white;
+}
+
+/* Make points column stand out */
+.points {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+}
     </style>
 </head>
 <body>
