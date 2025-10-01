@@ -721,6 +721,171 @@
         #main-app {
             display: none;
         }
+        /* Additional styles to add to your index.html */
+
+/* Filter and scenario controls layout */
+.filter-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.scenario-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-save, .btn-save-as, .btn-reset {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-save {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-save-as {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-reset {
+    background: #dc3545;
+    color: white;
+}
+
+/* Measure card improvements */
+.measure-card {
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+}
+
+.measure-header {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.measure-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin: 8px 0;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.collection-types {
+    color: #495057;
+    font-weight: 500;
+}
+
+.difficulty {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.difficulty-easy {
+    background: #d4edda;
+    color: #155724;
+}
+
+.difficulty-medium {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.difficulty-hard {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.measure-config {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e9ecef;
+}
+
+.measure-config label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #495057;
+}
+
+.measure-config select {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Review mode improvements */
+.mvp-meta-small {
+    font-size: 11px;
+    color: #6c757d;
+    margin-top: 4px;
+}
+
+.mvp-summary {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+    color: #6c757d;
+    margin: 10px 0;
+}
+
+.performance-header {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+/* Make measure tabs scrollable if many measures */
+.measure-tabs {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.measure-tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Ensure filters don't break layout */
+#filter-container {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#scenario-selector {
+    min-width: 150px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+}
     </style>
 </head>
 <body>
