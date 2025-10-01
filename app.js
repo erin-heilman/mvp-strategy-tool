@@ -1,5 +1,5 @@
-// MVP Strategic Planning Tool - COMPLETE WORKING VERSION WITH ALL FIXES
-console.log('MVP Tool Starting - Final Working Version...');
+// MVP Strategic Planning Tool - COMPLETE VERSION WITH BENCHMARK FIXES
+console.log('MVP Tool Starting - Version with Real Benchmarks...');
 
 // Configuration
 const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
@@ -51,7 +51,7 @@ async function init() {
     }
 }
 
-// Load data from API - Using correct [sheet].js format
+// Load data from API with PROPER BENCHMARK LOADING
 async function loadData() {
     console.log('Loading data from API...');
     
@@ -124,10 +124,47 @@ async function loadData() {
                 measure_name: row.measure_name || row['Measure Name'] || '',
                 is_activated: row.is_activated || row['Is Activated'] || 'N',
                 collection_types: row.collection_types || row['Collection Types'] || 'MIPS CQM',
-                difficulty: row.difficulty || row['Difficulty'] || 'Medium'
+                difficulty: row.difficulty || row['Difficulty'] || 'Medium',
+                is_inverse: row.is_inverse || row['Is Inverse'] || 'N'  // Add inverse flag from measures
             }));
             
             console.log(`Loaded ${measures.length} measures`);
+        }
+        
+        // LOAD BENCHMARKS - CRITICAL FOR SCORING!
+        console.log('Fetching benchmarks from /api/sheets/benchmarks...');
+        const benchmarksResponse = await fetch('/api/sheets/benchmarks');
+        
+        if (benchmarksResponse.ok) {
+            const benchmarksData = await benchmarksResponse.json();
+            
+            benchmarks = benchmarksData.map(row => ({
+                benchmark_year: row.benchmark_year || row['Benchmark Year'] || '2025',
+                measure_id: row.measure_id || row['Measure ID'] || '',
+                collection_type: row.collection_type || row['Collection Type'] || '',
+                is_inverse: row.is_inverse || row['Is Inverse'] || 'N',
+                mean_performance: parseFloat(row.mean_performance || row['Mean Performance'] || 0),
+                decile_1: parseFloat(row.decile_1 || row['Decile 1'] || 0),
+                decile_2: parseFloat(row.decile_2 || row['Decile 2'] || 0),
+                decile_3: parseFloat(row.decile_3 || row['Decile 3'] || 0),
+                decile_4: parseFloat(row.decile_4 || row['Decile 4'] || 0),
+                decile_5: parseFloat(row.decile_5 || row['Decile 5'] || 0),
+                decile_6: parseFloat(row.decile_6 || row['Decile 6'] || 0),
+                decile_7: parseFloat(row.decile_7 || row['Decile 7'] || 0),
+                decile_8: parseFloat(row.decile_8 || row['Decile 8'] || 0),
+                decile_9: parseFloat(row.decile_9 || row['Decile 9'] || 0),
+                decile_10: parseFloat(row.decile_10 || row['Decile 10'] || 100)
+            }));
+            
+            console.log(`Loaded ${benchmarks.length} benchmarks`);
+            
+            // Log sample benchmark for debugging
+            if (benchmarks.length > 0) {
+                console.log('Sample benchmark:', benchmarks[0]);
+            }
+        } else {
+            console.log('No benchmarks loaded, using defaults');
+            benchmarks = [];
         }
         
     } catch (error) {
@@ -145,8 +182,10 @@ async function loadData() {
         ];
         
         measures = [
-            { measure_id: 'Q001', measure_name: 'Diabetes Control', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Medium' }
+            { measure_id: 'Q001', measure_name: 'Diabetes Control', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Medium', is_inverse: 'Y' }
         ];
+        
+        benchmarks = [];
     }
     
     updateStats();
@@ -379,6 +418,7 @@ function renderMeasuresTab(mvp) {
                             </span>
                         </div>
                         ${isActivated ? '<span class="badge activated">Already Activated</span>' : '<span class="badge new">New Measure</span>'}
+                        ${measure.is_inverse === 'Y' ? '<span class="badge" style="background: #ffeeba; color: #856404;">Inverse Measure</span>' : ''}
                     </div>
                 </label>
                 ${isSelected && availableTypes.length > 1 ? `
@@ -468,7 +508,7 @@ function renderWorkTab(mvp) {
     container.innerHTML = html;
 }
 
-// FIXED Review Mode Functions
+// Review Mode Functions
 function renderReviewMode() {
     currentMode = 'review';
     
@@ -504,7 +544,6 @@ function renderReviewMode() {
         div.className = `review-mvp-item ${currentMVP === mvp.mvp_id ? 'active' : ''}`;
         div.onclick = () => selectReviewMVP(mvp.mvp_id);
         
-        // Fixed: Better contrast for the text
         div.innerHTML = `
             <div>
                 <div class="mvp-name">${mvp.mvp_name}</div>
@@ -534,7 +573,6 @@ function selectReviewMVP(mvpId) {
     // Update active state in list
     document.querySelectorAll('.review-mvp-item').forEach(item => {
         item.classList.remove('active');
-        // Update text color based on active state
         const metaEl = item.querySelector('.mvp-meta-small');
         if (metaEl) {
             metaEl.style.color = '#6c757d';
@@ -582,8 +620,6 @@ function renderPerformanceEntry(mvpId) {
     selections.measures.forEach((measureId, index) => {
         const measure = measures.find(m => m.measure_id === measureId);
         const score = calculateMeasureScore(mvpId, measureId);
-        
-        // Show measure NAME instead of just ID
         const displayName = measure ? measure.measure_name : measureId;
         
         html += `
@@ -607,6 +643,7 @@ function renderPerformanceEntry(mvpId) {
     container.innerHTML = html;
 }
 
+// UPDATED renderPerformanceTable with inverse measure indicator
 function renderPerformanceTable(mvpId, measureId) {
     const assigned = assignments[mvpId] || [];
     const config = mvpSelections[mvpId]?.configs[measureId] || {};
@@ -620,13 +657,22 @@ function renderPerformanceTable(mvpId, measureId) {
         mvpPerformance[mvpId] = {};
     }
     
+    // Check if this measure is inverse
+    const measure = measures.find(m => m.measure_id === measureId);
+    const benchmark = benchmarks.find(b => 
+        b.measure_id === measureId && 
+        b.collection_type === (config.collectionType || 'MIPS CQM')
+    );
+    const isInverse = benchmark?.is_inverse === 'Y' || benchmark?.is_inverse === 'Yes' || 
+                     measure?.is_inverse === 'Y' || measure?.is_inverse === 'Yes';
+    
     let html = `
         <table class="performance-table">
             <thead>
                 <tr>
                     <th>Clinician</th>
                     <th>Specialty</th>
-                    <th>Performance Rate (%)</th>
+                    <th>Performance Rate (%)${isInverse ? ' <span style="color: #dc3545; font-size: 11px;">(Lower is Better)</span>' : ''}</th>
                     <th>Decile</th>
                     <th>Points</th>
                 </tr>
@@ -715,18 +761,165 @@ function updatePerformance(mvpId, measureId, npi, value) {
     updateOverallScore();
 }
 
+// COMPLETELY REWRITTEN calculateDecile function with proper inverse handling
 function calculateDecile(measureId, collectionType, performanceRate) {
-    // More realistic decile calculation
-    if (performanceRate >= 95) return { decile: 10, points: 10.0 };
-    if (performanceRate >= 90) return { decile: 9, points: 9.0 };
-    if (performanceRate >= 85) return { decile: 8, points: 8.0 };
-    if (performanceRate >= 80) return { decile: 7, points: 7.0 };
-    if (performanceRate >= 75) return { decile: 6, points: 6.0 };
-    if (performanceRate >= 70) return { decile: 5, points: 5.0 };
-    if (performanceRate >= 60) return { decile: 4, points: 4.0 };
-    if (performanceRate >= 50) return { decile: 3, points: 3.0 };
-    if (performanceRate >= 40) return { decile: 2, points: 2.0 };
-    return { decile: 1, points: 1.0 };
+    // Find the specific benchmark for this measure and collection type
+    const benchmark = benchmarks.find(b => 
+        b.measure_id === measureId && 
+        b.collection_type === collectionType
+    );
+    
+    if (!benchmark) {
+        console.log(`No benchmark found for ${measureId} - ${collectionType}, using defaults`);
+        // Fallback to simple calculation if no benchmark found
+        if (performanceRate >= 95) return { decile: 10, points: 10.0 };
+        if (performanceRate >= 90) return { decile: 9, points: 9.0 };
+        if (performanceRate >= 85) return { decile: 8, points: 8.0 };
+        if (performanceRate >= 80) return { decile: 7, points: 7.0 };
+        if (performanceRate >= 75) return { decile: 6, points: 6.0 };
+        if (performanceRate >= 70) return { decile: 5, points: 5.0 };
+        if (performanceRate >= 60) return { decile: 4, points: 4.0 };
+        if (performanceRate >= 50) return { decile: 3, points: 3.0 };
+        if (performanceRate >= 40) return { decile: 2, points: 2.0 };
+        return { decile: 1, points: 1.0 };
+    }
+    
+    console.log(`Calculating for ${measureId} - ${collectionType}, Rate: ${performanceRate}, Inverse: ${benchmark.is_inverse}`);
+    
+    // Check if this is an inverse measure
+    const isInverse = benchmark.is_inverse === 'Y' || benchmark.is_inverse === 'Yes' || 
+                     benchmark.is_inverse === true || benchmark.is_inverse === 'TRUE';
+    
+    let decile = 1;
+    let points = 1.0;
+    
+    if (isInverse) {
+        // INVERSE MEASURE: Lower is better
+        // For inverse measures, you need a LOWER score to reach a HIGHER decile
+        // Example: Q001 eCQM - to reach decile 3, your score must be ≤73.2
+        
+        if (performanceRate <= benchmark.decile_10) {
+            decile = 10;
+            points = 10.0;
+        } else if (performanceRate <= benchmark.decile_9) {
+            decile = 9;
+            points = 9.0;
+        } else if (performanceRate <= benchmark.decile_8) {
+            decile = 8;
+            points = 8.0;
+        } else if (performanceRate <= benchmark.decile_7) {
+            decile = 7;
+            points = 7.0;
+        } else if (performanceRate <= benchmark.decile_6) {
+            decile = 6;
+            points = 6.0;
+        } else if (performanceRate <= benchmark.decile_5) {
+            decile = 5;
+            points = 5.0;
+        } else if (performanceRate <= benchmark.decile_4) {
+            decile = 4;
+            points = 4.0;
+        } else if (performanceRate <= benchmark.decile_3) {
+            decile = 3;
+            points = 3.0;
+        } else if (performanceRate <= benchmark.decile_2) {
+            decile = 2;
+            points = 2.0;
+        } else {
+            // If worse than decile 2 threshold, you're in decile 1
+            decile = 1;
+            points = 1.0;
+        }
+        
+        console.log(`Inverse calculation: ${performanceRate} is ${decile === 1 ? 'worse' : 'better'} than threshold ${benchmark[`decile_${Math.min(decile + 1, 10)}`]}`);
+        
+    } else {
+        // NORMAL MEASURE: Higher is better
+        // For normal measures, you need a HIGHER score to reach a HIGHER decile
+        
+        if (performanceRate >= benchmark.decile_10) {
+            decile = 10;
+            points = 10.0;
+        } else if (performanceRate >= benchmark.decile_9) {
+            decile = 9;
+            points = 9.0;
+        } else if (performanceRate >= benchmark.decile_8) {
+            decile = 8;
+            points = 8.0;
+        } else if (performanceRate >= benchmark.decile_7) {
+            decile = 7;
+            points = 7.0;
+        } else if (performanceRate >= benchmark.decile_6) {
+            decile = 6;
+            points = 6.0;
+        } else if (performanceRate >= benchmark.decile_5) {
+            decile = 5;
+            points = 5.0;
+        } else if (performanceRate >= benchmark.decile_4) {
+            decile = 4;
+            points = 4.0;
+        } else if (performanceRate >= benchmark.decile_3) {
+            decile = 3;
+            points = 3.0;
+        } else if (performanceRate >= benchmark.decile_2) {
+            decile = 2;
+            points = 2.0;
+        } else {
+            decile = 1;
+            points = 1.0;
+        }
+        
+        console.log(`Normal calculation: ${performanceRate} compared to thresholds`);
+    }
+    
+    // Optional: Add fractional points within the decile
+    // This gives partial credit within each decile range
+    if (decile < 10 && decile > 0) {
+        try {
+            const currentThreshold = benchmark[`decile_${decile}`];
+            const nextThreshold = benchmark[`decile_${Math.min(decile + 1, 10)}`];
+            
+            if (currentThreshold !== undefined && nextThreshold !== undefined) {
+                let progress;
+                
+                if (isInverse) {
+                    // For inverse: If in decile 2 (threshold 90), next better is decile 3 (threshold 73.2)
+                    // Progress from 90 toward 73.2
+                    if (decile === 1) {
+                        // In decile 1, can't get partial points toward decile 2
+                        progress = 0;
+                    } else {
+                        const worseThreshold = decile === 1 ? 100 : benchmark[`decile_${decile - 1}`] || 100;
+                        progress = (worseThreshold - performanceRate) / (worseThreshold - currentThreshold);
+                    }
+                } else {
+                    // For normal measures
+                    if (decile === 1) {
+                        // In decile 1, calculate progress toward decile 2
+                        progress = performanceRate / currentThreshold;
+                    } else {
+                        const lowerThreshold = benchmark[`decile_${decile - 1}`] || 0;
+                        progress = (performanceRate - lowerThreshold) / (currentThreshold - lowerThreshold);
+                    }
+                }
+                
+                // Add up to 0.9 points based on progress
+                if (progress > 0 && progress <= 1) {
+                    points = (decile - 1) + Math.min(progress, 1) * 0.9 + 0.1;
+                }
+            }
+        } catch (e) {
+            // If calculation fails, just use base points
+            console.log('Error calculating fractional points:', e);
+        }
+    }
+    
+    console.log(`Final: Decile ${decile}, Points ${points.toFixed(1)}`);
+    
+    return { 
+        decile: decile, 
+        points: parseFloat(points.toFixed(1))
+    };
 }
 
 function calculateMeasureAverage(mvpId, measureId) {
@@ -992,6 +1185,7 @@ function setCollectionType(mvpId, measureId, value) {
     }
     
     mvpSelections[mvpId].configs[measureId].collectionType = value;
+    console.log(`Set ${measureId} to ${value} for MVP ${mvpId}`);
 }
 
 // Scenario Management
