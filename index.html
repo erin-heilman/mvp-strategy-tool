@@ -82,10 +82,22 @@
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .filter-row {
             display: flex;
             gap: 10px;
             align-items: center;
             flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .scenario-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding-top: 10px;
+            border-top: 1px solid #e9ecef;
         }
 
         #filter-container input[type="text"] {
@@ -96,11 +108,12 @@
             border-radius: 4px;
         }
 
-        #filter-container select {
+        #filter-container select, #scenario-selector {
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
             background: white;
+            min-width: 150px;
         }
 
         #filter-container button {
@@ -124,6 +137,21 @@
 
         .btn-assign {
             background: #28a745;
+            color: white;
+        }
+
+        .btn-save {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-save-as {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-reset {
+            background: #dc3545;
             color: white;
         }
 
@@ -341,9 +369,10 @@
         }
 
         .measure-card {
-            padding: 12px;
+            padding: 15px;
             border: 2px solid #e9ecef;
             border-radius: 6px;
+            margin-bottom: 10px;
             transition: all 0.2s;
         }
 
@@ -356,10 +385,17 @@
             background: #f0fff4;
         }
 
+        .measure-header {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
         .measure-content {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .measure-id {
@@ -370,6 +406,42 @@
         .measure-name {
             flex: 1;
             font-size: 14px;
+        }
+
+        .measure-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin: 8px 0;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .collection-types {
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .difficulty {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .difficulty-easy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .difficulty-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .difficulty-hard {
+            background: #f8d7da;
+            color: #721c24;
         }
 
         .badge {
@@ -390,19 +462,25 @@
         }
 
         .measure-config {
-            display: flex;
-            gap: 10px;
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid #e9ecef;
         }
 
-        .measure-config select {
-            flex: 1;
-            padding: 4px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        .measure-config label {
+            display: block;
             font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+
+        .measure-config select {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
         }
 
         .measure-requirement {
@@ -518,9 +596,28 @@
             font-weight: 500;
         }
 
+        /* FIXED: Better contrast for MVP metadata */
+        .mvp-meta-small {
+            color: #6c757d !important;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .review-mvp-item.active .mvp-meta-small {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+
         .mvp-score {
             font-size: 18px;
             font-weight: bold;
+        }
+
+        .mvp-summary {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #6c757d;
+            margin: 10px 0;
         }
 
         .overall-score {
@@ -578,6 +675,8 @@
 
         .performance-header {
             margin-bottom: 20px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 15px;
         }
 
         .performance-header h2 {
@@ -585,14 +684,22 @@
             margin-bottom: 15px;
         }
 
+        /* Make measure tabs more readable */
         .measure-tabs {
             display: flex;
             gap: 5px;
             border-bottom: 2px solid #e9ecef;
+            overflow-x: auto;
+            padding-bottom: 2px;
         }
 
         .measure-tab {
-            padding: 10px 20px;
+            padding: 10px 15px;
+            font-size: 13px;
+            max-width: 250px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             background: transparent;
             border: none;
             cursor: pointer;
@@ -600,12 +707,18 @@
             font-weight: 500;
             transition: all 0.2s;
             position: relative;
+            flex-shrink: 0;
+        }
+
+        .measure-tab:hover {
+            background: #f8f9fa;
         }
 
         .measure-tab.active {
             color: #667eea;
             border-bottom: 2px solid #667eea;
             margin-bottom: -2px;
+            font-weight: 600;
         }
 
         .tab-score {
@@ -623,6 +736,7 @@
             color: white;
         }
 
+        /* Improve performance table styling */
         .performance-table {
             width: 100%;
             border-collapse: collapse;
@@ -648,11 +762,12 @@
         }
 
         .performance-table input {
-            width: 100%;
+            width: 100px;
             padding: 6px 10px;
             border: 1px solid #ced4da;
             border-radius: 4px;
             font-size: 14px;
+            text-align: center;
         }
 
         .performance-table tfoot {
@@ -660,42 +775,69 @@
             font-weight: bold;
         }
 
+        /* Better decile colors */
         .decile {
-            text-align: center;
-            font-weight: bold;
             padding: 4px 8px;
             border-radius: 4px;
-        }
-
-        .decile-1, .decile-2 {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .decile-3, .decile-4 {
-            background: #fff3e0;
-            color: #ef6c00;
-        }
-
-        .decile-5, .decile-6 {
-            background: #fffde7;
-            color: #f9a825;
-        }
-
-        .decile-7, .decile-8 {
-            background: #f1f8e9;
-            color: #558b2f;
-        }
-
-        .decile-9, .decile-10 {
-            background: #e0f2f1;
-            color: #00695c;
-        }
-
-        .points {
-            text-align: center;
             font-weight: bold;
+            text-align: center;
+        }
+
+        .decile-10 {
+            background: #00695c;
+            color: white;
+        }
+
+        .decile-9 {
+            background: #00897b;
+            color: white;
+        }
+
+        .decile-8 {
+            background: #26a69a;
+            color: white;
+        }
+
+        .decile-7 {
+            background: #66bb6a;
+            color: white;
+        }
+
+        .decile-6 {
+            background: #9ccc65;
+            color: #333;
+        }
+
+        .decile-5 {
+            background: #ffee58;
+            color: #333;
+        }
+
+        .decile-4 {
+            background: #ffca28;
+            color: #333;
+        }
+
+        .decile-3 {
+            background: #ffa726;
+            color: white;
+        }
+
+        .decile-2 {
+            background: #ff7043;
+            color: white;
+        }
+
+        .decile-1 {
+            background: #ef5350;
+            color: white;
+        }
+
+        /* Make points column stand out */
+        .points {
             font-size: 16px;
+            font-weight: bold;
+            text-align: center;
         }
 
         .export-btn {
@@ -721,276 +863,6 @@
         #main-app {
             display: none;
         }
-        /* Additional styles to add to your index.html */
-
-/* Filter and scenario controls layout */
-.filter-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.scenario-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    padding-top: 10px;
-    border-top: 1px solid #e9ecef;
-}
-
-.btn-save, .btn-save-as, .btn-reset {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-.btn-save {
-    background: #17a2b8;
-    color: white;
-}
-
-.btn-save-as {
-    background: #6c757d;
-    color: white;
-}
-
-.btn-reset {
-    background: #dc3545;
-    color: white;
-}
-
-/* Measure card improvements */
-.measure-card {
-    padding: 15px;
-    border: 2px solid #e9ecef;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    transition: all 0.2s;
-}
-
-.measure-header {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    margin-bottom: 8px;
-}
-
-.measure-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    margin: 8px 0;
-    padding: 8px;
-    background: #f8f9fa;
-    border-radius: 4px;
-}
-
-.collection-types {
-    color: #495057;
-    font-weight: 500;
-}
-
-.difficulty {
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-weight: 600;
-}
-
-.difficulty-easy {
-    background: #d4edda;
-    color: #155724;
-}
-
-.difficulty-medium {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.difficulty-hard {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.measure-config {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #e9ecef;
-}
-
-.measure-config label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 5px;
-    color: #495057;
-}
-
-.measure-config select {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-/* Review mode improvements */
-.mvp-meta-small {
-    font-size: 11px;
-    color: #6c757d;
-    margin-top: 4px;
-}
-
-.mvp-summary {
-    display: flex;
-    gap: 20px;
-    font-size: 14px;
-    color: #6c757d;
-    margin: 10px 0;
-}
-
-.performance-header {
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-}
-
-/* Make measure tabs scrollable if many measures */
-.measure-tabs {
-    display: flex;
-    gap: 5px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-}
-
-.measure-tab {
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-
-/* Ensure filters don't break layout */
-#filter-container {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-#scenario-selector {
-    min-width: 150px;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: white;
-}
-        /* Fix dark gray text in Review MVP list */
-.review-mvp-item .mvp-meta-small {
-    color: #6c757d !important;
-    font-size: 12px;
-    margin-top: 4px;
-}
-
-.review-mvp-item.active .mvp-meta-small {
-    color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* Make measure tabs more readable */
-.measure-tab {
-    padding: 10px 15px;
-    font-size: 13px;
-    max-width: 250px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-}
-
-.measure-tab:hover {
-    background: #f8f9fa;
-}
-
-.measure-tab.active {
-    font-weight: 600;
-}
-
-/* Improve performance table styling */
-.performance-table {
-    width: 100%;
-    margin-top: 20px;
-}
-
-.performance-table input[type="number"] {
-    width: 100px;
-    text-align: center;
-}
-
-/* Better decile colors */
-.decile {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
-    text-align: center;
-}
-
-.decile-10 {
-    background: #00695c;
-    color: white;
-}
-
-.decile-9 {
-    background: #00897b;
-    color: white;
-}
-
-.decile-8 {
-    background: #26a69a;
-    color: white;
-}
-
-.decile-7 {
-    background: #66bb6a;
-    color: white;
-}
-
-.decile-6 {
-    background: #9ccc65;
-    color: dark;
-}
-
-.decile-5 {
-    background: #ffee58;
-    color: dark;
-}
-
-.decile-4 {
-    background: #ffca28;
-    color: dark;
-}
-
-.decile-3 {
-    background: #ffa726;
-    color: white;
-}
-
-.decile-2 {
-    background: #ff7043;
-    color: white;
-}
-
-.decile-1 {
-    background: #ef5350;
-    color: white;
-}
-
-/* Make points column stand out */
-.points {
-    font-size: 16px;
-    font-weight: bold;
-    text-align: center;
-}
     </style>
 </head>
 <body>
