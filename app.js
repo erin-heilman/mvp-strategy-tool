@@ -51,56 +51,144 @@ async function init() {
     }
 }
 
-// Load data from API
+// Replace your loadData function with this version that uses the correct API format
+
 async function loadData() {
     console.log('Loading data from API...');
     
     try {
-        // Load clinicians - use the correct API format
-        console.log('Fetching clinicians...');
-        const response = await fetch('/api/sheets?sheet=clinicians');
+        // Use the correct format for [sheet].js API: /api/sheets/clinicians
+        console.log('Fetching clinicians from /api/sheets/clinicians...');
+        const response = await fetch('/api/sheets/clinicians');
         
         if (!response.ok) {
             throw new Error(`Failed to load clinicians: ${response.status}`);
         }
         
         const cliniciansData = await response.json();
-        console.log('Raw clinicians data sample:', cliniciansData[0]);
+        console.log('Raw clinicians data:', cliniciansData);
+        console.log(`Loaded ${cliniciansData.length} clinicians`);
         
-        // Process clinicians data - use first_name + last_name OR full_name
+        // Process clinicians data - handle all name field variations
         clinicians = cliniciansData.map(row => {
             let name = 'Unknown';
             
-            // Try first_name + last_name combination
-            if (row['First Name'] && row['Last Name']) {
-                name = `${row['First Name']} ${row['Last Name']}`.trim();
-            } else if (row['first_name'] && row['last_name']) {
+            // Try different name field combinations
+            if (row['first_name'] && row['last_name']) {
                 name = `${row['first_name']} ${row['last_name']}`.trim();
-            } 
-            // Fall back to full_name
-            else if (row['Full Name']) {
-                name = row['Full Name'].trim();
+            } else if (row['First Name'] && row['Last Name']) {
+                name = `${row['First Name']} ${row['Last Name']}`.trim();
             } else if (row['full_name']) {
                 name = row['full_name'].trim();
-            }
-            // Last resort - try Name field
-            else if (row['Name']) {
-                name = row['Name'].trim();
+            } else if (row['Full Name']) {
+                name = row['Full Name'].trim();
             } else if (row['name']) {
                 name = row['name'].trim();
+            } else if (row['Name']) {
+                name = row['Name'].trim();
             }
             
             return {
-                npi: row.NPI || row.npi || '',
+                npi: row.npi || row.NPI || row.Npi || '',
                 name: name,
-                specialty: row.Specialty || row.specialty || 'Unknown',
-                tin: row.TIN || row.tin || '',
-                separate_ehr: row['Separate EHR'] || row.separate_ehr || 'No'
+                specialty: row.specialty || row.Specialty || row.primary_specialty || 'Unknown',
+                tin: row.tin || row.TIN || row.Tin || '',
+                separate_ehr: row.separate_ehr || row['Separate EHR'] || row['separate_ehr'] || 'No'
             };
         });
         
-        console.log(`Loaded ${clinicians.length} clinicians`);
+        console.log(`Processed ${clinicians.length} clinicians`);
+        if (clinicians.length > 0) {
+            console.log('Sample clinician:', clinicians[0]);
+        }
         
+        // Load MVPs - use the correct format
+        console.log('Fetching MVPs from /api/sheets/mvps...');
+        const mvpsResponse = await fetch('/api/sheets/mvps');
+        
+        if (mvpsResponse.ok) {
+            const mvpsData = await mvpsResponse.json();
+            console.log(`Loaded ${mvpsData.length} MVPs`);
+            
+            mvps = mvpsData.map(row => ({
+                mvp_id: row.mvp_id || row['MVP ID'] || row['MVP_ID'] || '',
+                mvp_name: row.mvp_name || row['MVP Name'] || row['MVP_Name'] || '',
+                specialties: row.eligible_specialties || row['Eligible Specialties'] || row.specialties || '',
+                available_measures: row.available_measures || row['Available Measures'] || ''
+            }));
+            
+            console.log(`Processed ${mvps.length} MVPs`);
+        } else {
+            console.error('Failed to load MVPs:', mvpsResponse.status);
+            mvps = [];
+        }
+        
+        // Load measures - use the correct format
+        console.log('Fetching measures from /api/sheets/measures...');
+        const measuresResponse = await fetch('/api/sheets/measures');
+        
+        if (measuresResponse.ok) {
+            const measuresData = await measuresResponse.json();
+            console.log(`Loaded ${measuresData.length} measures`);
+            
+            measures = measuresData.map(row => ({
+                measure_id: row.measure_id || row['Measure ID'] || row['measure_id'] || '',
+                measure_name: row.measure_name || row['Measure Name'] || row['measure_name'] || '',
+                is_activated: row.is_activated || row['Is Activated'] || row['is_activated'] || 'N',
+                collection_types: row.collection_types || row['Collection Types'] || row['collection_types'] || 'MIPS CQM',
+                difficulty: row.difficulty || row['Difficulty'] || row['difficulty'] || 'Medium',
+                implementation_effort: row.implementation_effort || row['Implementation Effort'] || 'Medium'
+            }));
+            
+            console.log(`Processed ${measures.length} measures`);
+        } else {
+            console.error('Failed to load measures:', measuresResponse.status);
+            measures = [];
+        }
+        
+        // Try to load benchmarks
+        const benchmarksResponse = await fetch('/api/sheets/benchmarks');
+        if (benchmarksResponse.ok) {
+            benchmarks = await benchmarksResponse.json();
+            console.log(`Loaded ${benchmarks.length} benchmarks`);
+        }
+        
+    } catch (error) {
+        console.error('Error loading data:', error);
+        console.error('Full error details:', error.message);
+        
+        alert(`Unable to load data from Google Sheets.
+        
+Error: ${error.message}
+
+Please check:
+1. Your Google Sheet is set to "Anyone with the link can view"
+2. The API file exists at api/sheets/[sheet].js
+3. Check the browser console (F12) for more details
+
+Using demo data for now.`);
+        
+        // Demo data fallback
+        clinicians = [
+            { npi: '1234567890', name: 'John Smith', specialty: 'Family Practice', tin: '123456789' },
+            { npi: '0987654321', name: 'Jane Doe', specialty: 'Emergency Medicine', tin: '123456789' },
+            { npi: '5555555555', name: 'Bob Johnson', specialty: 'Anesthesiology', tin: '123456789' }
+        ];
+        
+        mvps = [
+            { mvp_id: 'MVP001', mvp_name: 'Primary Care MVP', specialties: 'Family Medicine', available_measures: 'Q001,Q112,Q113' },
+            { mvp_id: 'MVP002', mvp_name: 'Emergency Medicine MVP', specialties: 'Emergency Medicine', available_measures: 'Q065,Q116' }
+        ];
+        
+        measures = [
+            { measure_id: 'Q001', measure_name: 'Diabetes: Hemoglobin A1c', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Easy' },
+            { measure_id: 'Q112', measure_name: 'Breast Cancer Screening', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Medium' },
+            { measure_id: 'Q113', measure_name: 'Colorectal Cancer Screening', is_activated: 'N', collection_types: 'MIPS CQM', difficulty: 'Hard' }
+        ];
+    }
+    
+    updateStats();
+}
         // Load MVPs
         console.log('Fetching MVPs...');
         const mvpsResponse = await fetch('/api/sheets?sheet=mvps');
