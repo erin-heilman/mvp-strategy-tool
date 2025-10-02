@@ -453,6 +453,9 @@ function renderPerformanceEstimation() {
         
         card.innerHTML = html;
         container.appendChild(card);
+        
+        // Auto-calculate scores on load if there are estimates
+        updateMVPTotalScore(mvp.mvp_id);
     });
 }
 
@@ -1391,7 +1394,19 @@ function setCollectionType(mvpId, measureId, value) {
 
 // Scenario Management
 function saveScenario() {
-    // Always save to current scenario name
+    // Don't allow saving over Default scenario
+    if (currentScenarioName === 'Default') {
+        const name = prompt('Default scenario cannot be modified. Enter a name for a new scenario:', 'Scenario ' + (Object.keys(savedScenarios).length + 1));
+        if (!name || name.trim() === '') return;
+        
+        currentScenarioName = name.trim();
+        
+        // Update dropdown to show new scenario
+        updateScenarioDropdown();
+        document.getElementById('scenario-selector').value = currentScenarioName;
+    }
+    
+    // Save to current scenario name
     const scenarioData = {
         name: currentScenarioName,
         timestamp: new Date().toISOString(),
@@ -1434,12 +1449,25 @@ function loadScenario(name) {
         return;
     }
     
-    if (!savedScenarios[name] && name !== 'Default') {
-        alert('Scenario not found');
-        return;
-    }
-    
-    if (savedScenarios[name]) {
+    // Default scenario is always blank
+    if (name === 'Default') {
+        currentScenarioName = 'Default';
+        assignments = {};
+        mvpSelections = {};
+        mvpPerformance = {};
+        measureEstimates = {};
+        measureConfigurations = {};
+        selectedClinicians.clear();
+        selectedSpecialties.clear();
+        currentMVP = null;
+        yearlyPlan = {
+            2025: { mvps: [], measures: [], focus: 'Foundation - High readiness measures' },
+            2026: { mvps: [], measures: [], focus: 'Expansion - Add specialty MVPs' },
+            2027: { mvps: [], measures: [], focus: 'Integration - Cross-specialty coordination' },
+            2028: { mvps: [], measures: [], focus: 'Optimization - Performance improvement' },
+            2029: { mvps: [], measures: [], focus: 'Excellence - Full MVP implementation' }
+        };
+    } else if (savedScenarios[name]) {
         const scenario = savedScenarios[name];
         currentScenarioName = name;
         assignments = scenario.assignments || {};
@@ -1458,17 +1486,9 @@ function loadScenario(name) {
         if (scenario.tinNumber) {
             updateTINNumber(scenario.tinNumber);
         }
-    } else if (name === 'Default') {
-        // Load default (blank) scenario
-        currentScenarioName = 'Default';
-        assignments = {};
-        mvpSelections = {};
-        mvpPerformance = {};
-        measureEstimates = {};
-        measureConfigurations = {};
-        selectedClinicians.clear();
-        selectedSpecialties.clear();
-        currentMVP = null;
+    } else {
+        alert('Scenario not found');
+        return;
     }
     
     // Refresh the current view
@@ -1588,6 +1608,11 @@ function loadSavedScenarios() {
     if (saved) {
         try {
             savedScenarios = JSON.parse(saved);
+            // Remove any saved Default scenario to ensure it's always blank
+            if (savedScenarios['Default']) {
+                delete savedScenarios['Default'];
+                localStorage.setItem('mvp_scenarios', JSON.stringify(savedScenarios));
+            }
         } catch (e) {
             console.error('Error loading saved scenarios:', e);
             savedScenarios = {};
