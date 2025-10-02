@@ -729,12 +729,20 @@ function renderExecutiveDashboard() {
     });
     
     // Sort MVPs by priority (highest priority first)
-    // MVPs with all measures already activated (0 setup time) go first
-    // Then by readiness and setup time
+    // Group 1: MVPs with all measures already activated (0 setup time)
+    // Group 2: MVPs with mostly activated measures and high readiness
+    // Group 3: Other MVPs by priority score
     mvpData.sort((a, b) => {
         // MVPs with 0 setup time (all measures activated) go first
         if (a.totalSetupMonths === 0 && b.totalSetupMonths > 0) return -1;
         if (b.totalSetupMonths === 0 && a.totalSetupMonths > 0) return 1;
+        
+        // Then MVPs with mostly activated measures (>50%) and high readiness
+        const aActivatedRatio = a.activatedMeasureCount / (a.activatedMeasureCount + a.newMeasureCount);
+        const bActivatedRatio = b.activatedMeasureCount / (b.activatedMeasureCount + b.newMeasureCount);
+        
+        if (aActivatedRatio > 0.5 && bActivatedRatio <= 0.5) return -1;
+        if (bActivatedRatio > 0.5 && aActivatedRatio <= 0.5) return 1;
         
         // Then by priority score
         return b.priorityScore - a.priorityScore;
@@ -757,26 +765,23 @@ function renderExecutiveDashboard() {
         2029: { new: [], improve: [] }
     };
     
-    // Implementation capacity per year (in months)
-    const yearCapacity = {
-        2025: 12,
-        2026: 12,
-        2027: 12,
-        2028: 12,
-        2029: 12
-    };
-    
     const years = [2025, 2026, 2027, 2028, 2029];
-    let currentYearIdx = 0;
-    let remainingCapacity = yearCapacity[2025];
     
     // Track when each MVP is introduced
     const mvpIntroductionYear = {};
     
-    // Phase 1: Add MVPs with all measures already activated (0 implementation time)
+    // Strategy: Distribute MVPs more evenly
+    // Year 2025: Quick wins (0 setup MVPs) + 1-2 easy MVPs
+    // Year 2026: 1-2 medium complexity MVPs  
+    // Year 2027: Continue adding MVPs if any remain
+    // Year 2028: Final MVPs if any
+    // Year 2029: Pure optimization (no new MVPs)
+    
+    let mvpIndex = 0;
+    
+    // Phase 1: Add MVPs with all measures already activated to 2025
     mvpData.forEach(mvp => {
         if (mvp.totalSetupMonths === 0 && mvp.newMeasureCount === 0) {
-            // This MVP requires no new implementation - add it to 2025
             mvpIntroductionYear[mvp.mvpId] = 2025;
             yearMVPs[2025].new.add(mvp.mvpId);
             
@@ -788,48 +793,53 @@ function renderExecutiveDashboard() {
                     isActivated: true
                 });
             });
+            mvpIndex++;
         }
     });
     
-    // Phase 2: Schedule MVPs with new measures based on capacity
-    mvpData.forEach(mvp => {
-        if (mvp.totalSetupMonths > 0 && !mvpIntroductionYear[mvp.mvpId]) {
-            // Find the year with enough capacity
-            while (currentYearIdx < years.length - 1 && remainingCapacity < mvp.totalSetupMonths) {
-                currentYearIdx++;
-                remainingCapacity = yearCapacity[years[currentYearIdx]];
-            }
-            
-            const year = years[currentYearIdx];
-            
-            // Track MVP introduction
-            mvpIntroductionYear[mvp.mvpId] = year;
-            yearMVPs[year].new.add(mvp.mvpId);
-            
-            // Add measures
-            mvp.measureDetails.forEach(m => {
-                if (m.isActivated) {
-                    // Already activated - add as improvement measure
-                    yearMeasures[year].improve.push({
-                        mvpId: mvp.mvpId,
-                        measureId: m.measureId,
-                        isActivated: true
-                    });
-                } else {
-                    // New measure to implement
-                    yearMeasures[year].new.push({
-                        mvpId: mvp.mvpId,
-                        measureId: m.measureId,
-                        setupMonths: m.setupMonths,
-                        readiness: m.readiness,
-                        isActivated: false
-                    });
-                }
-            });
-            
-            // Reduce capacity
-            remainingCapacity -= mvp.totalSetupMonths;
+    // Phase 2: Distribute remaining MVPs across 2025-2028 (not 2029!)
+    // Calculate how many MVPs per year
+    const remainingMVPs = mvpData.filter(mvp => !mvpIntroductionYear[mvp.mvpId]);
+    const mvpsPerYear = Math.max(1, Math.ceil(remainingMVPs.length / 4)); // Spread over 4 years max
+    
+    let currentYear = 2025;
+    let mvpsAddedThisYear = yearMVPs[2025].new.size; // Count already added MVPs
+    
+    remainingMVPs.forEach(mvp => {
+        // Move to next year if we've added enough MVPs this year
+        if (mvpsAddedThisYear >= mvpsPerYear && currentYear < 2028) {
+            currentYear++;
+            mvpsAddedThisYear = 0;
         }
+        
+        // Don't add new MVPs in 2029 - that's optimization year only
+        if (currentYear >= 2029) {
+            currentYear = 2028; // Put any remaining in 2028
+        }
+        
+        mvpIntroductionYear[mvp.mvpId] = currentYear;
+        yearMVPs[currentYear].new.add(mvp.mvpId);
+        
+        // Add measures for this MVP
+        mvp.measureDetails.forEach(m => {
+            if (m.isActivated) {
+                yearMeasures[currentYear].improve.push({
+                    mvpId: mvp.mvpId,
+                    measureId: m.measureId,
+                    isActivated: true
+                });
+            } else {
+                yearMeasures[currentYear].new.push({
+                    mvpId: mvp.mvpId,
+                    measureId: m.measureId,
+                    setupMonths: m.setupMonths,
+                    readiness: m.readiness,
+                    isActivated: false
+                });
+            }
+        });
+        
+        mvpsAddedThisYear++;
     });
     
     // Build cumulative MVP lists and propagate improvement measures
@@ -878,10 +888,20 @@ function renderExecutiveDashboard() {
         yearlyPlan[year].improveMeasures = [...new Set(yearMeasures[year].improve.map(item => item.measureId))];
         
         // Update focus based on what's happening that year
-        if (year == 2025 && yearMeasures[year].new.length === 0 && yearMeasures[year].improve.length > 0) {
-            yearlyPlan[year].focus = 'Foundation - Optimize existing activated measures';
-        } else if (year == 2029 && yearMeasures[year].new.length === 0) {
-            yearlyPlan[year].focus = 'Excellence - Optimization and continuous improvement';
+        if (year == 2025) {
+            yearlyPlan[year].focus = 'Foundation - Quick wins and high readiness measures';
+        } else if (year == 2026) {
+            yearlyPlan[year].focus = 'Expansion - Add specialty MVPs';
+        } else if (year == 2027) {
+            yearlyPlan[year].focus = 'Integration - Cross-specialty coordination';
+        } else if (year == 2028) {
+            yearlyPlan[year].focus = 'Optimization - Performance improvement';
+        } else if (year == 2029) {
+            if (yearMVPs[year].new.size === 0) {
+                yearlyPlan[year].focus = 'Excellence - Full optimization and continuous improvement';
+            } else {
+                yearlyPlan[year].focus = 'Excellence - Full MVP implementation';
+            }
         }
     });
     
