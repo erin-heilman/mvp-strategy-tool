@@ -661,56 +661,86 @@ function calculateTotalScores() {
 // Executive Dashboard with readiness-based planning
 function renderExecutiveDashboard() {
     // Create yearly plan based on measure readiness and setup time
-    const mvpMeasureData = [];
-    const allActiveMVPs = new Set();
+    const mvpData = [];
     
-    // Collect all MVP-measure combinations with readiness and setup time
+    // Analyze each MVP's implementation complexity
     Object.keys(assignments).forEach(mvpId => {
-        if (assignments[mvpId]?.length > 0) {
-            allActiveMVPs.add(mvpId);
-        }
+        if (!assignments[mvpId] || assignments[mvpId].length === 0) return;
+        
+        let totalSetupMonths = 0;
+        let avgReadiness = 0;
+        let newMeasureCount = 0;
+        let activatedMeasureCount = 0;
+        let measureDetails = [];
         
         if (mvpSelections[mvpId] && mvpSelections[mvpId].measures.length > 0) {
             mvpSelections[mvpId].measures.forEach(measureId => {
                 const measure = measures.find(m => m.measure_id === measureId);
                 const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
                 
-                // Parse setup time to months
-                let setupMonths = 3;
-                const setupTime = config.setupTime || measure?.setup_time || '3 months';
-                if (setupTime.includes('month')) {
-                    setupMonths = parseInt(setupTime) || 3;
-                } else if (setupTime.includes('year')) {
-                    setupMonths = parseInt(setupTime) * 12 || 12;
+                const readiness = config.readiness || measure?.readiness || 3;
+                const isActivated = measure?.is_activated === 'Y';
+                
+                // Parse setup time
+                let setupMonths = 0;
+                if (!isActivated) {
+                    const setupTime = config.setupTime || measure?.setup_time || '3 months';
+                    if (setupTime.includes('month')) {
+                        setupMonths = parseInt(setupTime) || 3;
+                    } else if (setupTime.includes('year')) {
+                        setupMonths = parseInt(setupTime) * 12 || 12;
+                    } else if (setupTime === '0' || setupTime === '0 months') {
+                        setupMonths = 0;
+                    } else {
+                        setupMonths = 3; // default
+                    }
                 }
                 
-                mvpMeasureData.push({
-                    mvpId: mvpId,
+                measureDetails.push({
                     measureId: measureId,
-                    readiness: config.readiness || measure?.readiness || 3,
+                    readiness: readiness,
                     setupMonths: setupMonths,
-                    difficulty: measure?.difficulty || 'Medium',
-                    isActivated: measure?.is_activated === 'Y'
+                    isActivated: isActivated
                 });
+                
+                if (isActivated) {
+                    activatedMeasureCount++;
+                } else {
+                    newMeasureCount++;
+                    totalSetupMonths += setupMonths;
+                }
+                
+                avgReadiness += readiness;
             });
+            
+            avgReadiness = avgReadiness / mvpSelections[mvpId].measures.length;
         }
+        
+        mvpData.push({
+            mvpId: mvpId,
+            totalSetupMonths: totalSetupMonths,
+            avgReadiness: avgReadiness,
+            newMeasureCount: newMeasureCount,
+            activatedMeasureCount: activatedMeasureCount,
+            measureDetails: measureDetails,
+            // Priority score: Lower setup time and higher readiness = higher priority
+            priorityScore: (avgReadiness * 10) - (totalSetupMonths * 2)
+        });
     });
     
-    // Sort by readiness (high to low) and setup time (short to long)
-    mvpMeasureData.sort((a, b) => {
-        // New measures (not activated) come before activated ones for implementation
-        if (a.isActivated !== b.isActivated) {
-            return a.isActivated ? 1 : -1;
-        }
-        // Then by readiness
-        if (b.readiness !== a.readiness) {
-            return b.readiness - a.readiness;
-        }
-        // Then by setup time
-        return a.setupMonths - b.setupMonths;
+    // Sort MVPs by priority (highest priority first)
+    // MVPs with all measures already activated (0 setup time) go first
+    // Then by readiness and setup time
+    mvpData.sort((a, b) => {
+        // MVPs with 0 setup time (all measures activated) go first
+        if (a.totalSetupMonths === 0 && b.totalSetupMonths > 0) return -1;
+        if (b.totalSetupMonths === 0 && a.totalSetupMonths > 0) return 1;
+        
+        // Then by priority score
+        return b.priorityScore - a.priorityScore;
     });
     
-    // Initialize yearly data
+    // Initialize yearly tracking
     const yearMVPs = {
         2025: { all: new Set(), new: new Set() },
         2026: { all: new Set(), new: new Set() },
@@ -727,10 +757,7 @@ function renderExecutiveDashboard() {
         2029: { new: [], improve: [] }
     };
     
-    // Track when each MVP is first introduced
-    const mvpIntroductionYear = {};
-    
-    // Distribute NEW measures across years based on implementation capacity
+    // Implementation capacity per year (in months)
     const yearCapacity = {
         2025: 12,
         2026: 12,
@@ -739,39 +766,73 @@ function renderExecutiveDashboard() {
         2029: 12
     };
     
-    let currentYearIdx = 0;
     const years = [2025, 2026, 2027, 2028, 2029];
-    let remainingCapacity = yearCapacity[years[currentYearIdx]];
+    let currentYearIdx = 0;
+    let remainingCapacity = yearCapacity[2025];
     
-    // First pass: Schedule NEW measures
-    mvpMeasureData.filter(item => !item.isActivated).forEach(item => {
-        // Find appropriate year based on capacity
-        while (currentYearIdx < years.length - 1 && remainingCapacity < item.setupMonths) {
-            currentYearIdx++;
-            remainingCapacity = yearCapacity[years[currentYearIdx]];
+    // Track when each MVP is introduced
+    const mvpIntroductionYear = {};
+    
+    // Phase 1: Add MVPs with all measures already activated (0 implementation time)
+    mvpData.forEach(mvp => {
+        if (mvp.totalSetupMonths === 0 && mvp.newMeasureCount === 0) {
+            // This MVP requires no new implementation - add it to 2025
+            mvpIntroductionYear[mvp.mvpId] = 2025;
+            yearMVPs[2025].new.add(mvp.mvpId);
+            
+            // Add all its measures as "improve" measures
+            mvp.measureDetails.forEach(m => {
+                yearMeasures[2025].improve.push({
+                    mvpId: mvp.mvpId,
+                    measureId: m.measureId,
+                    isActivated: true
+                });
+            });
         }
-        
-        const year = years[currentYearIdx];
-        
-        // Track MVP introduction
-        if (!mvpIntroductionYear[item.mvpId]) {
-            mvpIntroductionYear[item.mvpId] = year;
-            yearMVPs[year].new.add(item.mvpId);
-        }
-        
-        yearMeasures[year].new.push(item);
-        remainingCapacity -= item.setupMonths;
     });
     
-    // Second pass: Add already activated measures as "improve"
-    mvpMeasureData.filter(item => item.isActivated).forEach(item => {
-        // These go in all years as measures to improve
-        years.forEach(year => {
-            yearMeasures[year].improve.push(item);
-        });
+    // Phase 2: Schedule MVPs with new measures based on capacity
+    mvpData.forEach(mvp => {
+        if (mvp.totalSetupMonths > 0 && !mvpIntroductionYear[mvp.mvpId]) {
+            // Find the year with enough capacity
+            while (currentYearIdx < years.length - 1 && remainingCapacity < mvp.totalSetupMonths) {
+                currentYearIdx++;
+                remainingCapacity = yearCapacity[years[currentYearIdx]];
+            }
+            
+            const year = years[currentYearIdx];
+            
+            // Track MVP introduction
+            mvpIntroductionYear[mvp.mvpId] = year;
+            yearMVPs[year].new.add(mvp.mvpId);
+            
+            // Add measures
+            mvp.measureDetails.forEach(m => {
+                if (m.isActivated) {
+                    // Already activated - add as improvement measure
+                    yearMeasures[year].improve.push({
+                        mvpId: mvp.mvpId,
+                        measureId: m.measureId,
+                        isActivated: true
+                    });
+                } else {
+                    // New measure to implement
+                    yearMeasures[year].new.push({
+                        mvpId: mvp.mvpId,
+                        measureId: m.measureId,
+                        setupMonths: m.setupMonths,
+                        readiness: m.readiness,
+                        isActivated: false
+                    });
+                }
+            });
+            
+            // Reduce capacity
+            remainingCapacity -= mvp.totalSetupMonths;
+        }
     });
     
-    // Build cumulative MVP list (all MVPs active in each year)
+    // Build cumulative MVP lists and propagate improvement measures
     let cumulativeMVPs = new Set();
     years.forEach(year => {
         // Add new MVPs for this year
@@ -780,14 +841,48 @@ function renderExecutiveDashboard() {
         });
         // All cumulative MVPs are active
         yearMVPs[year].all = new Set(cumulativeMVPs);
+        
+        // For continuing MVPs, add their measures to improvement list
+        cumulativeMVPs.forEach(mvpId => {
+            if (!yearMVPs[year].new.has(mvpId)) {
+                // This is a continuing MVP
+                const mvp = mvpData.find(m => m.mvpId === mvpId);
+                if (mvp) {
+                    mvp.measureDetails.forEach(m => {
+                        // Check if this measure is already in new or improve lists
+                        const isInNew = yearMeasures[year].new.some(nm => 
+                            nm.mvpId === mvpId && nm.measureId === m.measureId
+                        );
+                        const isInImprove = yearMeasures[year].improve.some(im => 
+                            im.mvpId === mvpId && im.measureId === m.measureId
+                        );
+                        
+                        if (!isInNew && !isInImprove) {
+                            yearMeasures[year].improve.push({
+                                mvpId: mvpId,
+                                measureId: m.measureId,
+                                isActivated: true
+                            });
+                        }
+                    });
+                }
+            }
+        });
     });
     
-    // Update yearlyPlan with new structure
+    // Update yearlyPlan
     Object.keys(yearlyPlan).forEach(year => {
         yearlyPlan[year].mvps = Array.from(yearMVPs[year].all);
         yearlyPlan[year].newMvps = Array.from(yearMVPs[year].new);
-        yearlyPlan[year].newMeasures = yearMeasures[year].new.map(item => item.measureId);
+        yearlyPlan[year].newMeasures = [...new Set(yearMeasures[year].new.map(item => item.measureId))];
         yearlyPlan[year].improveMeasures = [...new Set(yearMeasures[year].improve.map(item => item.measureId))];
+        
+        // Update focus based on what's happening that year
+        if (year == 2025 && yearMeasures[year].new.length === 0 && yearMeasures[year].improve.length > 0) {
+            yearlyPlan[year].focus = 'Foundation - Optimize existing activated measures';
+        } else if (year == 2029 && yearMeasures[year].new.length === 0) {
+            yearlyPlan[year].focus = 'Excellence - Optimization and continuous improvement';
+        }
     });
     
     selectYear(2025);
