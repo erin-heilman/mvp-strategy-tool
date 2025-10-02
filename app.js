@@ -1967,13 +1967,13 @@ window.showMeasureDetails = function(year, type) {
     const modalBody = document.getElementById('modalBody');
     
     const plan = yearlyPlan[year];
-    const measures = type === 'new' ? plan.newMeasures : plan.improveMeasures;
+    const measureList = type === 'new' ? plan.newMeasures : plan.improveMeasures;
     
     modalTitle.textContent = `Year ${year} - ${type === 'new' ? 'New Measures to Implement' : 'Measures to Improve'}`;
     
     let html = '<div class="measure-list">';
     
-    measures.forEach(measureId => {
+    measureList.forEach(measureId => {
         const measure = measures.find(m => m.measure_id === measureId);
         if (!measure) return;
         
@@ -2009,7 +2009,7 @@ window.showMeasureDetails = function(year, type) {
                     <span>Collection: ${collectionType}</span>
                     <span>Median: ${medianBenchmark.toFixed(2)}%</span>
                     ${isInverse ? '<span style="color: #dc3545;">Inverse Measure</span>' : ''}
-                    ${type === 'new' ? `<span>Status: New Implementation</span>` : '<span>Status: Improvement Phase</span>'}
+                    ${type === 'new' ? '<span>Status: New Implementation</span>' : '<span>Status: Improvement Phase</span>'}
                 </div>
             </div>
         `;
