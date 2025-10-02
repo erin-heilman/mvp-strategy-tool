@@ -903,96 +903,134 @@ function selectYear(year) {
     const detailsContainer = document.getElementById('year-details');
     const plan = yearlyPlan[year];
     
-    let html = `
-        <div class="year-details">
-            <h3>Year ${year} Implementation Plan</h3>
-            <p style="color: #586069; margin-bottom: 20px;">
-                <strong>Focus:</strong> ${plan.focus}
-            </p>
-            
-            <div class="implementation-grid">
-                <div class="implementation-card">
-                    <h4>All Active MVPs (${plan.mvps.length})</h4>
-                    <ul style="list-style: none; padding: 0;">
-                        ${plan.mvps.map(mvpId => {
-                            const mvp = mvps.find(m => m.mvp_id === mvpId);
-                            const isNew = plan.newMvps && plan.newMvps.includes(mvpId);
-                            return mvp ? `
-                                <li style="padding: 5px 0; ${isNew ? 'font-weight: 600;' : ''}">
-                                    ${mvp.mvp_name}
-                                    ${isNew ? '<span style="color: #28a745; font-size: 12px; margin-left: 8px;">NEW</span>' : ''}
-                                </li>` : '';
-                        }).join('')}
-                    </ul>
-                </div>
+    let html = '';
+    html += '<div class="year-details">';
+    html += '<h3>Year ' + year + ' Implementation Plan</h3>';
+    html += '<p style="color: #586069; margin-bottom: 20px;">';
+    html += '<strong>Focus:</strong> ' + plan.focus;
+    html += '</p>';
+    
+    html += '<div class="implementation-grid">';
+    
+    // All Active MVPs card
+    html += '<div class="implementation-card">';
+    html += '<h4>All Active MVPs (' + plan.mvps.length + ')</h4>';
+    html += '<ul style="list-style: none; padding: 0;">';
+    
+    plan.mvps.forEach(function(mvpId) {
+        const mvp = mvps.find(m => m.mvp_id === mvpId);
+        if (mvp) {
+            const isNew = plan.newMvps && plan.newMvps.includes(mvpId);
+            html += '<li style="padding: 5px 0;' + (isNew ? ' font-weight: 600;' : '') + '">';
+            html += mvp.mvp_name;
+            if (isNew) {
+                html += '<span style="color: #28a745; font-size: 12px; margin-left: 8px;">NEW</span>';
+            }
+            html += '</li>';
+        }
+    });
+    
+    html += '</ul>';
+    html += '</div>';
+    
+    // New Measures to Implement card
+    html += '<div class="implementation-card">';
+    html += '<h4>New Measures to Implement (' + (plan.newMeasures ? plan.newMeasures.length : 0) + ')</h4>';
+    
+    if (plan.newMeasures && plan.newMeasures.length > 0) {
+        html += '<ul style="list-style: none; padding: 0;">';
+        
+        const displayMeasures = plan.newMeasures.slice(0, 3);
+        displayMeasures.forEach(function(measureId) {
+            const measure = measures.find(m => m.measure_id === measureId);
+            if (measure) {
+                // Find configuration
+                let readiness = 3;
+                const mvpMeasureKey = Object.keys(measureConfigurations).find(k => k.includes(measureId));
+                if (mvpMeasureKey) {
+                    const config = measureConfigurations[mvpMeasureKey];
+                    if (config && config.readiness) {
+                        readiness = config.readiness;
+                    } else if (measure.readiness) {
+                        readiness = measure.readiness;
+                    }
+                } else if (measure.readiness) {
+                    readiness = measure.readiness;
+                }
                 
-                <div class="implementation-card">
-                    <h4>New Measures to Implement (${plan.newMeasures ? plan.newMeasures.length : 0})</h4>
-                    ${plan.newMeasures && plan.newMeasures.length > 0 ? `
-                        <ul style="list-style: none; padding: 0;">
-                            ${plan.newMeasures.slice(0, 3).map(measureId => {
-                                const measure = measures.find(m => m.measure_id === measureId);
-                                // Find the measure configuration for this measure
-                                const mvpMeasureKey = Object.keys(measureConfigurations).find(k => k.includes(measureId));
-                                const config = mvpMeasureKey ? measureConfigurations[mvpMeasureKey] : {};
-                                // Use config readiness, then measure readiness, then default to 3
-                                const readiness = config.readiness || measure?.readiness || 3;
-                                return measure ? `
-                                    <li style="padding: 5px 0;">
-                                        ${measureId}: ${measure.measure_name}
-                                        <span style="font-size: 12px; color: #586069;">(Readiness: ${readiness}/5)</span>
-                                    </li>` : '';
-                            }).join('')}
-                            ${plan.newMeasures.length > 3 ? `
-                                <li style="padding: 5px 0; font-style: italic; color: #004877; cursor: pointer;" 
-                                    onclick="showMeasureDetails('${year}', 'new')">
-                                    ... and ${plan.newMeasures.length - 3} more (click to view all)
-                                </li>` : ''}
-                        </ul>
-                        </ul>
-                    ` : '<p style="color: #586069; font-size: 14px;">No new measures this year</p>'}
-                </div>
-                
-                <div class="implementation-card">
-                    <h4>Measures to Improve (${plan.improveMeasures ? plan.improveMeasures.length : 0})</h4>
-                    ${plan.improveMeasures && plan.improveMeasures.length > 0 ? `
-                        <ul style="list-style: none; padding: 0;">
-                            ${plan.improveMeasures.slice(0, 3).map(measureId => {
-                                const measure = measures.find(m => m.measure_id === measureId);
-                                return measure ? `
-                                    <li style="padding: 5px 0; color: #586069;">
-                                        ${measureId}: ${measure.measure_name}
-                                    </li>` : '';
-                            }).join('')}
-                            ${plan.improveMeasures.length > 3 ? `
-                                <li style="padding: 5px 0; font-style: italic; color: #004877; cursor: pointer;"
-                                    onclick="showMeasureDetails('${year}', 'improve')">
-                                    ... and ${plan.improveMeasures.length - 3} more (click to view all)
-                                </li>` : ''}
-                        </ul>
-                    ` : '<p style="color: #586069; font-size: 14px;">No existing measures to improve</p>'}
-                        </ul>
-                    ` : '<p style="color: #586069; font-size: 14px;">No existing measures to improve</p>'}
-                </div>
-            </div>
-            
-            <div class="implementation-grid" style="margin-top: 20px;">
-                <div class="implementation-card" style="grid-column: span 3;">
-                    <h4>Key Milestones for ${year}</h4>
-                    <ul style="list-style: none; padding: 0;">
-                        ${plan.newMeasures && plan.newMeasures.length > 0 ? `
-                            <li style="padding: 5px 0;">Q1: Implement all new measures (${plan.newMeasures.length} total)</li>
-                            <li style="padding: 5px 0;">Q2: Performance improvement on existing measures</li>
-                        ` : plan.improveMeasures && plan.improveMeasures.length > 0 ? `
-                            <li style="padding: 5px 0;">Q1-Q2: Continuous performance improvement on existing measures</li>
-                        ` : ''}
-                        <li style="padding: 5px 0;">Q3: Review updates to available measures and MVPs for ${year + 1}</li>
-                        <li style="padding: 5px 0;">Q4: Review new clinicians, update groupings, and incorporate new data elements</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    `;
+                html += '<li style="padding: 5px 0;">';
+                html += measureId + ': ' + measure.measure_name;
+                html += '<span style="font-size: 12px; color: #586069;"> (Readiness: ' + readiness + '/5)</span>';
+                html += '</li>';
+            }
+        });
+        
+        if (plan.newMeasures.length > 3) {
+            html += '<li style="padding: 5px 0; font-style: italic; color: #004877; cursor: pointer;" ';
+            html += 'onclick="showMeasureDetails(\'' + year + '\', \'new\')">';
+            html += '... and ' + (plan.newMeasures.length - 3) + ' more (click to view all)';
+            html += '</li>';
+        }
+        
+        html += '</ul>';
+    } else {
+        html += '<p style="color: #586069; font-size: 14px;">No new measures this year</p>';
+    }
+    
+    html += '</div>';
+    
+    // Measures to Improve card
+    html += '<div class="implementation-card">';
+    html += '<h4>Measures to Improve (' + (plan.improveMeasures ? plan.improveMeasures.length : 0) + ')</h4>';
+    
+    if (plan.improveMeasures && plan.improveMeasures.length > 0) {
+        html += '<ul style="list-style: none; padding: 0;">';
+        
+        const displayImprove = plan.improveMeasures.slice(0, 3);
+        displayImprove.forEach(function(measureId) {
+            const measure = measures.find(m => m.measure_id === measureId);
+            if (measure) {
+                html += '<li style="padding: 5px 0; color: #586069;">';
+                html += measureId + ': ' + measure.measure_name;
+                html += '</li>';
+            }
+        });
+        
+        if (plan.improveMeasures.length > 3) {
+            html += '<li style="padding: 5px 0; font-style: italic; color: #004877; cursor: pointer;" ';
+            html += 'onclick="showMeasureDetails(\'' + year + '\', \'improve\')">';
+            html += '... and ' + (plan.improveMeasures.length - 3) + ' more (click to view all)';
+            html += '</li>';
+        }
+        
+        html += '</ul>';
+    } else {
+        html += '<p style="color: #586069; font-size: 14px;">No existing measures to improve</p>';
+    }
+    
+    html += '</div>';
+    html += '</div>';
+    
+    // Key Milestones
+    html += '<div class="implementation-grid" style="margin-top: 20px;">';
+    html += '<div class="implementation-card" style="grid-column: span 3;">';
+    html += '<h4>Key Milestones for ' + year + '</h4>';
+    html += '<ul style="list-style: none; padding: 0;">';
+    
+    if (plan.newMeasures && plan.newMeasures.length > 0) {
+        html += '<li style="padding: 5px 0;">Q1: Implement all new measures (' + plan.newMeasures.length + ' total)</li>';
+        html += '<li style="padding: 5px 0;">Q2: Performance improvement on existing measures</li>';
+    } else if (plan.improveMeasures && plan.improveMeasures.length > 0) {
+        html += '<li style="padding: 5px 0;">Q1-Q2: Continuous performance improvement on existing measures</li>';
+    }
+    
+    html += '<li style="padding: 5px 0;">Q3: Review updates to available measures and MVPs for ' + (year + 1) + '</li>';
+    html += '<li style="padding: 5px 0;">Q4: Review new clinicians, update groupings, and incorporate new data elements</li>';
+    html += '</ul>';
+    html += '</div>';
+    html += '</div>';
+    
+    html += '</div>';
     
     detailsContainer.innerHTML = html;
 }
