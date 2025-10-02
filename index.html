@@ -1177,6 +1177,88 @@
         #main-app {
             display: none;
         }
+        
+        /* Modal/Lightbox Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            border: 1px solid #e1e4e8;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+        
+        .modal-header h2 {
+            color: #24292e;
+            font-size: 22px;
+            margin: 0;
+        }
+        
+        .modal-close {
+            color: #586069;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+        
+        .modal-close:hover {
+            color: #24292e;
+        }
+        
+        .modal-body {
+            padding: 10px 0;
+        }
+        
+        .measure-list-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f6f8fa;
+            border-left: 3px solid #004877;
+        }
+        
+        .measure-list-item strong {
+            color: #24292e;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .measure-meta-info {
+            font-size: 13px;
+            color: #586069;
+            display: flex;
+            gap: 20px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -1400,6 +1482,19 @@
                 <button onclick="toggleMode()" style="padding: 10px 24px; background: #004877; color: white; border: none; cursor: pointer;">
                     Back to Planning
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Measure Details -->
+    <div id="measureModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Measure Details</h2>
+                <span class="modal-close" onclick="closeMeasureModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Content will be populated dynamically -->
             </div>
         </div>
     </div>
