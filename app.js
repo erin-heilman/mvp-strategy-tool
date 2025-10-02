@@ -186,7 +186,8 @@ async function loadData() {
                 collection_type: row.collection_type || row['Collection Type'] || '',
                 is_inverse: row.is_inverse || row['Is Inverse'] || 'N',
                 mean_performance: parseFloat(row.mean_performance || row['Mean Performance'] || 0),
-                median_performance: parseFloat(row.median_performance || row['Median Performance'] || row.decile_5 || 75),
+                // The median is typically at decile_5 (50th percentile)
+                median_performance: parseFloat(row.decile_5 || row['Decile 5'] || row.median_performance || row['Median Performance'] || 50),
                 decile_1: parseFloat(row.decile_1 || row['Decile 1'] || 0),
                 decile_2: parseFloat(row.decile_2 || row['Decile 2'] || 0),
                 decile_3: parseFloat(row.decile_3 || row['Decile 3'] || 0),
@@ -201,11 +202,21 @@ async function loadData() {
             
             console.log(`Loaded ${benchmarks.length} benchmarks`);
             
+            // Log sample benchmark to verify median is loading correctly
+            if (benchmarks.length > 0) {
+                const q416Benchmark = benchmarks.find(b => b.measure_id === 'Q416');
+                if (q416Benchmark) {
+                    console.log('Q416 Benchmark median:', q416Benchmark.median_performance, 'Decile 5:', q416Benchmark.decile_5);
+                }
+            }
+            
             // Update measures with median benchmark from benchmarks if available
             measures.forEach(measure => {
                 const benchmark = benchmarks.find(b => b.measure_id === measure.measure_id);
-                if (benchmark && benchmark.median_performance) {
-                    measure.median_benchmark = benchmark.median_performance;
+                if (benchmark) {
+                    // Use decile_5 as the median (50th percentile)
+                    measure.median_benchmark = benchmark.decile_5 || benchmark.median_performance || 75;
+                    console.log(`${measure.measure_id}: Setting median to ${measure.median_benchmark}`);
                 }
             });
         }
@@ -408,8 +419,8 @@ function renderPerformanceEstimation() {
                     b.collection_type === collectionType
                 );
                 
-                // Use benchmark median if available, otherwise use measure's median_benchmark
-                const medianBenchmark = benchmark?.median_performance || benchmark?.decile_5 || measure.median_benchmark;
+                // Use decile_5 (50th percentile) as the median
+                const medianBenchmark = benchmark?.decile_5 || benchmark?.median_performance || measure.median_benchmark || 75;
                 
                 const isInverse = benchmark?.is_inverse === 'Y' || benchmark?.is_inverse === 'Yes' || 
                                  measure.is_inverse === 'Y' || measure.is_inverse === 'Yes';
@@ -422,11 +433,11 @@ function renderPerformanceEstimation() {
                         </div>
                         <input type="number" 
                                class="estimation-input" 
-                               min="0" max="100" 
+                               min="0" max="100" step="0.01"
                                value="${measureEstimates[`${mvp.mvp_id}_${measureId}`] || ''}"
                                placeholder="Est %"
                                onchange="updateMeasureEstimate('${mvp.mvp_id}', '${measureId}', this.value)">
-                        <div class="benchmark-value">Median: ${medianBenchmark.toFixed(0)}%</div>
+                        <div class="benchmark-value">Median: ${medianBenchmark.toFixed(2)}%</div>
                         <div id="score-${mvp.mvp_id}-${measureId}" class="score-value">--</div>
                     </div>
                 `;
@@ -891,7 +902,8 @@ function renderEnhancedMeasuresTab(mvp) {
             b.measure_id === measureId && 
             b.collection_type === (config.collectionType || availableTypes[0])
         );
-        const medianBenchmark = benchmark?.median_performance || benchmark?.decile_5 || measure.median_benchmark;
+        // Decile 5 is the median (50th percentile)
+        const medianBenchmark = benchmark?.decile_5 || measure.median_benchmark || 75;
         
         const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y';
         
@@ -916,7 +928,7 @@ function renderEnhancedMeasuresTab(mvp) {
                         ${isActivated ? '<span class="badge activated">Already Activated</span>' : '<span class="badge new">New Measure</span>'}
                         ${isInverse ? '<span class="badge inverse">Inverse Measure</span>' : ''}
                         <div style="margin-top: 8px; font-size: 12px; color: #586069;">
-                            Median Benchmark: ${medianBenchmark.toFixed(0)}%
+                            Median Benchmark: ${medianBenchmark.toFixed(2)}%
                         </div>
                     </div>
                 </label>
