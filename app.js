@@ -662,9 +662,14 @@ function calculateTotalScores() {
 function renderExecutiveDashboard() {
     // Create yearly plan based on measure readiness and setup time
     const mvpMeasureData = [];
+    const allActiveMVPs = new Set();
     
     // Collect all MVP-measure combinations with readiness and setup time
     Object.keys(assignments).forEach(mvpId => {
+        if (assignments[mvpId]?.length > 0) {
+            allActiveMVPs.add(mvpId);
+        }
+        
         if (mvpSelections[mvpId] && mvpSelections[mvpId].measures.length > 0) {
             mvpSelections[mvpId].measures.forEach(measureId => {
                 const measure = measures.find(m => m.measure_id === measureId);
@@ -693,9 +698,9 @@ function renderExecutiveDashboard() {
     
     // Sort by readiness (high to low) and setup time (short to long)
     mvpMeasureData.sort((a, b) => {
-        // Already activated measures first
+        // New measures (not activated) come before activated ones for implementation
         if (a.isActivated !== b.isActivated) {
-            return a.isActivated ? -1 : 1;
+            return a.isActivated ? 1 : -1;
         }
         // Then by readiness
         if (b.readiness !== a.readiness) {
@@ -705,36 +710,41 @@ function renderExecutiveDashboard() {
         return a.setupMonths - b.setupMonths;
     });
     
-    // Distribute across years based on implementation capacity
+    // Initialize yearly data
+    const yearMVPs = {
+        2025: { all: new Set(), new: new Set() },
+        2026: { all: new Set(), new: new Set() },
+        2027: { all: new Set(), new: new Set() },
+        2028: { all: new Set(), new: new Set() },
+        2029: { all: new Set(), new: new Set() }
+    };
+    
+    const yearMeasures = {
+        2025: { new: [], improve: [] },
+        2026: { new: [], improve: [] },
+        2027: { new: [], improve: [] },
+        2028: { new: [], improve: [] },
+        2029: { new: [], improve: [] }
+    };
+    
+    // Track when each MVP is first introduced
+    const mvpIntroductionYear = {};
+    
+    // Distribute NEW measures across years based on implementation capacity
     const yearCapacity = {
-        2025: 12, // 12 months of implementation capacity
+        2025: 12,
         2026: 12,
         2027: 12,
         2028: 12,
         2029: 12
     };
     
-    const yearMVPs = {
-        2025: new Set(),
-        2026: new Set(),
-        2027: new Set(),
-        2028: new Set(),
-        2029: new Set()
-    };
-    
-    const yearMeasures = {
-        2025: [],
-        2026: [],
-        2027: [],
-        2028: [],
-        2029: []
-    };
-    
     let currentYearIdx = 0;
     const years = [2025, 2026, 2027, 2028, 2029];
     let remainingCapacity = yearCapacity[years[currentYearIdx]];
     
-    mvpMeasureData.forEach(item => {
+    // First pass: Schedule NEW measures
+    mvpMeasureData.filter(item => !item.isActivated).forEach(item => {
         // Find appropriate year based on capacity
         while (currentYearIdx < years.length - 1 && remainingCapacity < item.setupMonths) {
             currentYearIdx++;
@@ -742,15 +752,42 @@ function renderExecutiveDashboard() {
         }
         
         const year = years[currentYearIdx];
-        yearMVPs[year].add(item.mvpId);
-        yearMeasures[year].push(item);
+        
+        // Track MVP introduction
+        if (!mvpIntroductionYear[item.mvpId]) {
+            mvpIntroductionYear[item.mvpId] = year;
+            yearMVPs[year].new.add(item.mvpId);
+        }
+        
+        yearMeasures[year].new.push(item);
         remainingCapacity -= item.setupMonths;
     });
     
-    // Update yearlyPlan
+    // Second pass: Add already activated measures as "improve"
+    mvpMeasureData.filter(item => item.isActivated).forEach(item => {
+        // These go in all years as measures to improve
+        years.forEach(year => {
+            yearMeasures[year].improve.push(item);
+        });
+    });
+    
+    // Build cumulative MVP list (all MVPs active in each year)
+    let cumulativeMVPs = new Set();
+    years.forEach(year => {
+        // Add new MVPs for this year
+        yearMVPs[year].new.forEach(mvpId => {
+            cumulativeMVPs.add(mvpId);
+        });
+        // All cumulative MVPs are active
+        yearMVPs[year].all = new Set(cumulativeMVPs);
+    });
+    
+    // Update yearlyPlan with new structure
     Object.keys(yearlyPlan).forEach(year => {
-        yearlyPlan[year].mvps = Array.from(yearMVPs[year]);
-        yearlyPlan[year].measures = yearMeasures[year].map(item => item.measureId);
+        yearlyPlan[year].mvps = Array.from(yearMVPs[year].all);
+        yearlyPlan[year].newMvps = Array.from(yearMVPs[year].new);
+        yearlyPlan[year].newMeasures = yearMeasures[year].new.map(item => item.measureId);
+        yearlyPlan[year].improveMeasures = [...new Set(yearMeasures[year].improve.map(item => item.measureId))];
     });
     
     selectYear(2025);
@@ -780,38 +817,66 @@ function selectYear(year) {
             
             <div class="implementation-grid">
                 <div class="implementation-card">
-                    <h4>Active MVPs (${plan.mvps.length})</h4>
+                    <h4>All Active MVPs (${plan.mvps.length})</h4>
                     <ul style="list-style: none; padding: 0;">
                         ${plan.mvps.map(mvpId => {
                             const mvp = mvps.find(m => m.mvp_id === mvpId);
-                            return mvp ? `<li style="padding: 5px 0;">${mvp.mvp_name}</li>` : '';
-                        }).join('')}
-                    </ul>
-                </div>
-                
-                <div class="implementation-card">
-                    <h4>Measures to Implement (${plan.measures.length})</h4>
-                    <ul style="list-style: none; padding: 0;">
-                        ${plan.measures.slice(0, 5).map(measureId => {
-                            const measure = measures.find(m => m.measure_id === measureId);
-                            const readiness = measureConfigurations[Object.keys(measureConfigurations).find(k => k.includes(measureId))]?.readiness || measure?.readiness || 3;
-                            return measure ? `
-                                <li style="padding: 5px 0;">
-                                    ${measureId}: ${measure.measure_name}
-                                    <span style="font-size: 12px; color: #586069;">(Readiness: ${readiness}/5)</span>
+                            const isNew = plan.newMvps && plan.newMvps.includes(mvpId);
+                            return mvp ? `
+                                <li style="padding: 5px 0; ${isNew ? 'font-weight: 600;' : ''}">
+                                    ${mvp.mvp_name}
+                                    ${isNew ? '<span style="color: #28a745; font-size: 12px; margin-left: 8px;">NEW</span>' : ''}
                                 </li>` : '';
                         }).join('')}
-                        ${plan.measures.length > 5 ? `<li style="padding: 5px 0; font-style: italic;">... and ${plan.measures.length - 5} more</li>` : ''}
                     </ul>
                 </div>
                 
                 <div class="implementation-card">
-                    <h4>Key Milestones</h4>
+                    <h4>New Measures to Implement (${plan.newMeasures ? plan.newMeasures.length : 0})</h4>
+                    ${plan.newMeasures && plan.newMeasures.length > 0 ? `
+                        <ul style="list-style: none; padding: 0;">
+                            ${plan.newMeasures.slice(0, 5).map(measureId => {
+                                const measure = measures.find(m => m.measure_id === measureId);
+                                const mvpMeasureKey = Object.keys(measureConfigurations).find(k => k.includes(measureId));
+                                const readiness = mvpMeasureKey ? measureConfigurations[mvpMeasureKey]?.readiness : measure?.readiness || 3;
+                                return measure ? `
+                                    <li style="padding: 5px 0;">
+                                        ${measureId}: ${measure.measure_name}
+                                        <span style="font-size: 12px; color: #586069;">(Readiness: ${readiness}/5)</span>
+                                    </li>` : '';
+                            }).join('')}
+                            ${plan.newMeasures.length > 5 ? `<li style="padding: 5px 0; font-style: italic;">... and ${plan.newMeasures.length - 5} more</li>` : ''}
+                        </ul>
+                    ` : '<p style="color: #586069; font-size: 14px;">No new measures this year</p>'}
+                </div>
+                
+                <div class="implementation-card">
+                    <h4>Measures to Improve (${plan.improveMeasures ? plan.improveMeasures.length : 0})</h4>
+                    ${plan.improveMeasures && plan.improveMeasures.length > 0 ? `
+                        <ul style="list-style: none; padding: 0;">
+                            ${plan.improveMeasures.slice(0, 5).map(measureId => {
+                                const measure = measures.find(m => m.measure_id === measureId);
+                                return measure ? `
+                                    <li style="padding: 5px 0; color: #586069;">
+                                        ${measureId}: ${measure.measure_name}
+                                    </li>` : '';
+                            }).join('')}
+                            ${plan.improveMeasures.length > 5 ? `<li style="padding: 5px 0; font-style: italic; color: #586069;">... and ${plan.improveMeasures.length - 5} more</li>` : ''}
+                        </ul>
+                    ` : '<p style="color: #586069; font-size: 14px;">No existing measures to improve</p>'}
+                </div>
+            </div>
+            
+            <div class="implementation-grid" style="margin-top: 20px;">
+                <div class="implementation-card" style="grid-column: span 3;">
+                    <h4>Key Milestones for ${year}</h4>
                     <ul style="list-style: none; padding: 0;">
-                        <li style="padding: 5px 0;">Q1: High readiness measure implementation</li>
-                        <li style="padding: 5px 0;">Q2: Staff training and workflow adjustments</li>
-                        <li style="padding: 5px 0;">Q3: Performance monitoring and optimization</li>
-                        <li style="padding: 5px 0;">Q4: Preparation for next year's measures</li>
+                        ${plan.newMeasures && plan.newMeasures.length > 0 ? `
+                            <li style="padding: 5px 0;">Q1: Implement high-readiness new measures</li>
+                            <li style="padding: 5px 0;">Q2: Staff training for new workflows</li>
+                        ` : ''}
+                        <li style="padding: 5px 0;">Q3: Performance improvement for existing measures</li>
+                        <li style="padding: 5px 0;">Q4: Year-end review and ${year < 2029 ? 'preparation for ' + (year + 1) : 'final optimization'}</li>
                     </ul>
                 </div>
             </div>
@@ -1690,15 +1755,32 @@ function exportPlan() {
     };
     
     // Create CSV for Excel
-    let csvContent = "Year,MVP,Clinicians,Measures,Average Readiness,Total Setup Time,Focus\n";
+    let csvContent = "Year,MVP,Status,Clinicians,New Measures,Improvement Measures,Total Measures,Average Readiness,Total Setup Time,Focus\n";
     
     Object.entries(yearlyPlan).forEach(([year, plan]) => {
         plan.mvps.forEach(mvpId => {
             const mvp = mvps.find(m => m.mvp_id === mvpId);
+            const isNew = plan.newMvps && plan.newMvps.includes(mvpId);
             const clinicianCount = assignments[mvpId]?.length || 0;
-            const measureCount = mvpSelections[mvpId]?.measures.length || 0;
             
-            // Calculate average readiness and total setup time
+            // Count new vs improvement measures for this MVP
+            let newMeasureCount = 0;
+            let improveMeasureCount = 0;
+            
+            if (mvpSelections[mvpId]) {
+                mvpSelections[mvpId].measures.forEach(measureId => {
+                    const measure = measures.find(m => m.measure_id === measureId);
+                    if (plan.newMeasures && plan.newMeasures.includes(measureId)) {
+                        newMeasureCount++;
+                    } else if (plan.improveMeasures && plan.improveMeasures.includes(measureId)) {
+                        improveMeasureCount++;
+                    }
+                });
+            }
+            
+            const totalMeasureCount = newMeasureCount + improveMeasureCount;
+            
+            // Calculate average readiness
             let totalReadiness = 0;
             let totalSetupMonths = 0;
             
@@ -1709,16 +1791,19 @@ function exportPlan() {
                     
                     totalReadiness += config.readiness || measure?.readiness || 3;
                     
-                    const setupTime = config.setupTime || measure?.setup_time || '3 months';
-                    if (setupTime.includes('month')) {
-                        totalSetupMonths += parseInt(setupTime) || 3;
+                    // Only count setup time for new measures
+                    if (plan.newMeasures && plan.newMeasures.includes(measureId)) {
+                        const setupTime = config.setupTime || measure?.setup_time || '3 months';
+                        if (setupTime.includes('month')) {
+                            totalSetupMonths += parseInt(setupTime) || 3;
+                        }
                     }
                 });
             }
             
-            const avgReadiness = measureCount > 0 ? (totalReadiness / measureCount).toFixed(1) : 0;
+            const avgReadiness = totalMeasureCount > 0 ? (totalReadiness / totalMeasureCount).toFixed(1) : 0;
             
-            csvContent += `${year},"${mvp?.mvp_name || mvpId}",${clinicianCount},${measureCount},${avgReadiness},${totalSetupMonths} months,"${plan.focus}"\n`;
+            csvContent += `${year},"${mvp?.mvp_name || mvpId}",${isNew ? 'NEW' : 'CONTINUING'},${clinicianCount},${newMeasureCount},${improveMeasureCount},${totalMeasureCount},${avgReadiness},${totalSetupMonths} months,"${plan.focus}"\n`;
         });
     });
     
