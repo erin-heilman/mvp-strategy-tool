@@ -1961,20 +1961,29 @@ window.updateScenarioDropdown = updateScenarioDropdown;
 window.updateTINNumber = updateTINNumber;
 
 // Modal functions
-window.showMeasureDetails = function(year, type) {
+function showMeasureDetails(year, type) {
     const modal = document.getElementById('measureModal');
     const modalTitle = document.getElementById('modalTitle');
     const modalBody = document.getElementById('modalBody');
     
-    const plan = yearlyPlan[year];
-    const measureList = type === 'new' ? plan.newMeasures : plan.improveMeasures;
+    if (!modal || !modalTitle || !modalBody) return;
     
-    modalTitle.textContent = `Year ${year} - ${type === 'new' ? 'New Measures to Implement' : 'Measures to Improve'}`;
+    const plan = yearlyPlan[year];
+    if (!plan) return;
+    
+    const measureList = type === 'new' ? plan.newMeasures : plan.improveMeasures;
+    if (!measureList) return;
+    
+    const titleText = type === 'new' 
+        ? 'Year ' + year + ' - New Measures to Implement'
+        : 'Year ' + year + ' - Measures to Improve';
+    
+    modalTitle.textContent = titleText;
     
     let html = '<div class="measure-list">';
     
-    measureList.forEach(measureId => {
-        const measure = measures.find(m => m.measure_id === measureId);
+    measureList.forEach(function(measureId) {
+        const measure = measures.find(function(m) { return m.measure_id === measureId; });
         if (!measure) return;
         
         // Find MVP and configuration for this measure
@@ -1982,48 +1991,67 @@ window.showMeasureDetails = function(year, type) {
         let readiness = 3;
         let collectionType = 'MIPS CQM';
         
-        Object.keys(mvpSelections).forEach(mvpId => {
-            if (mvpSelections[mvpId].measures.includes(measureId)) {
-                const mvp = mvps.find(m => m.mvp_id === mvpId);
-                if (mvp) mvpName = mvp.mvp_name;
+        Object.keys(mvpSelections).forEach(function(mvpId) {
+            if (mvpSelections[mvpId] && mvpSelections[mvpId].measures && mvpSelections[mvpId].measures.includes(measureId)) {
+                const mvp = mvps.find(function(m) { return m.mvp_id === mvpId; });
+                if (mvp) {
+                    mvpName = mvp.mvp_name;
+                }
                 
-                const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
+                const configKey = mvpId + '_' + measureId;
+                const config = measureConfigurations[configKey] || {};
                 readiness = config.readiness || measure.readiness || 3;
-                collectionType = mvpSelections[mvpId].configs[measureId]?.collectionType || 'MIPS CQM';
+                
+                if (mvpSelections[mvpId].configs && mvpSelections[mvpId].configs[measureId]) {
+                    collectionType = mvpSelections[mvpId].configs[measureId].collectionType || 'MIPS CQM';
+                }
             }
         });
         
-        const benchmark = benchmarks.find(b => 
-            b.measure_id === measureId && 
-            b.collection_type === collectionType
-        );
-        const medianBenchmark = benchmark?.decile_5 || measure.median_benchmark || 75;
-        const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y';
+        const benchmark = benchmarks.find(function(b) {
+            return b.measure_id === measureId && b.collection_type === collectionType;
+        });
         
-        html += `
-            <div class="measure-list-item">
-                <strong>${measureId}: ${measure.measure_name}</strong>
-                <div class="measure-meta-info">
-                    <span>MVP: ${mvpName}</span>
-                    <span>Readiness: ${readiness}/5</span>
-                    <span>Collection: ${collectionType}</span>
-                    <span>Median: ${medianBenchmark.toFixed(2)}%</span>
-                    ${isInverse ? '<span style="color: #dc3545;">Inverse Measure</span>' : ''}
-                    ${type === 'new' ? '<span>Status: New Implementation</span>' : '<span>Status: Improvement Phase</span>'}
-                </div>
-            </div>
-        `;
+        const medianBenchmark = (benchmark && benchmark.decile_5) ? benchmark.decile_5 : (measure.median_benchmark || 75);
+        const isInverse = (benchmark && benchmark.is_inverse === 'Y') || (measure.is_inverse === 'Y');
+        
+        html += '<div class="measure-list-item">';
+        html += '<strong>' + measureId + ': ' + measure.measure_name + '</strong>';
+        html += '<div class="measure-meta-info">';
+        html += '<span>MVP: ' + mvpName + '</span>';
+        html += '<span>Readiness: ' + readiness + '/5</span>';
+        html += '<span>Collection: ' + collectionType + '</span>';
+        html += '<span>Median: ' + medianBenchmark.toFixed(2) + '%</span>';
+        
+        if (isInverse) {
+            html += '<span style="color: #dc3545;">Inverse Measure</span>';
+        }
+        
+        if (type === 'new') {
+            html += '<span>Status: New Implementation</span>';
+        } else {
+            html += '<span>Status: Improvement Phase</span>';
+        }
+        
+        html += '</div>';
+        html += '</div>';
     });
     
     html += '</div>';
     modalBody.innerHTML = html;
     modal.style.display = 'block';
-};
+}
 
-window.closeMeasureModal = function() {
+function closeMeasureModal() {
     const modal = document.getElementById('measureModal');
-    modal.style.display = 'none';
-};
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Export the modal functions
+window.showMeasureDetails = showMeasureDetails;
+window.closeMeasureModal = closeMeasureModal;
 
 // Close modal when clicking outside
 window.onclick = function(event) {
