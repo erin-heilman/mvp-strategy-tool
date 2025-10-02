@@ -930,17 +930,25 @@ function selectYear(year) {
                     <h4>New Measures to Implement (${plan.newMeasures ? plan.newMeasures.length : 0})</h4>
                     ${plan.newMeasures && plan.newMeasures.length > 0 ? `
                         <ul style="list-style: none; padding: 0;">
-                            ${plan.newMeasures.slice(0, 5).map(measureId => {
+                            ${plan.newMeasures.slice(0, 3).map(measureId => {
                                 const measure = measures.find(m => m.measure_id === measureId);
+                                // Find the measure configuration for this measure
                                 const mvpMeasureKey = Object.keys(measureConfigurations).find(k => k.includes(measureId));
-                                const readiness = mvpMeasureKey ? measureConfigurations[mvpMeasureKey]?.readiness : measure?.readiness || 3;
+                                const config = mvpMeasureKey ? measureConfigurations[mvpMeasureKey] : {};
+                                // Use config readiness, then measure readiness, then default to 3
+                                const readiness = config.readiness || measure?.readiness || 3;
                                 return measure ? `
                                     <li style="padding: 5px 0;">
                                         ${measureId}: ${measure.measure_name}
                                         <span style="font-size: 12px; color: #586069;">(Readiness: ${readiness}/5)</span>
                                     </li>` : '';
                             }).join('')}
-                            ${plan.newMeasures.length > 5 ? `<li style="padding: 5px 0; font-style: italic;">... and ${plan.newMeasures.length - 5} more</li>` : ''}
+                            ${plan.newMeasures.length > 3 ? `
+                                <li style="padding: 5px 0; font-style: italic; color: #004877; cursor: pointer;" 
+                                    onclick="showMeasureDetails('${year}', 'new')">
+                                    ... and ${plan.newMeasures.length - 3} more (click to view all)
+                                </li>` : ''}
+                        </ul>
                         </ul>
                     ` : '<p style="color: #586069; font-size: 14px;">No new measures this year</p>'}
                 </div>
@@ -949,14 +957,20 @@ function selectYear(year) {
                     <h4>Measures to Improve (${plan.improveMeasures ? plan.improveMeasures.length : 0})</h4>
                     ${plan.improveMeasures && plan.improveMeasures.length > 0 ? `
                         <ul style="list-style: none; padding: 0;">
-                            ${plan.improveMeasures.slice(0, 5).map(measureId => {
+                            ${plan.improveMeasures.slice(0, 3).map(measureId => {
                                 const measure = measures.find(m => m.measure_id === measureId);
                                 return measure ? `
                                     <li style="padding: 5px 0; color: #586069;">
                                         ${measureId}: ${measure.measure_name}
                                     </li>` : '';
                             }).join('')}
-                            ${plan.improveMeasures.length > 5 ? `<li style="padding: 5px 0; font-style: italic; color: #586069;">... and ${plan.improveMeasures.length - 5} more</li>` : ''}
+                            ${plan.improveMeasures.length > 3 ? `
+                                <li style="padding: 5px 0; font-style: italic; color: #004877; cursor: pointer;"
+                                    onclick="showMeasureDetails('${year}', 'improve')">
+                                    ... and ${plan.improveMeasures.length - 3} more (click to view all)
+                                </li>` : ''}
+                        </ul>
+                    ` : '<p style="color: #586069; font-size: 14px;">No existing measures to improve</p>'}
                         </ul>
                     ` : '<p style="color: #586069; font-size: 14px;">No existing measures to improve</p>'}
                 </div>
@@ -967,11 +981,13 @@ function selectYear(year) {
                     <h4>Key Milestones for ${year}</h4>
                     <ul style="list-style: none; padding: 0;">
                         ${plan.newMeasures && plan.newMeasures.length > 0 ? `
-                            <li style="padding: 5px 0;">Q1: Implement high-readiness new measures</li>
-                            <li style="padding: 5px 0;">Q2: Staff training for new workflows</li>
+                            <li style="padding: 5px 0;">Q1: Implement all new measures (${plan.newMeasures.length} total)</li>
+                            <li style="padding: 5px 0;">Q2: Performance improvement on existing measures</li>
+                        ` : plan.improveMeasures && plan.improveMeasures.length > 0 ? `
+                            <li style="padding: 5px 0;">Q1-Q2: Continuous performance improvement on existing measures</li>
                         ` : ''}
-                        <li style="padding: 5px 0;">Q3: Performance improvement for existing measures</li>
-                        <li style="padding: 5px 0;">Q4: Year-end review and ${year < 2029 ? 'preparation for ' + (year + 1) : 'final optimization'}</li>
+                        <li style="padding: 5px 0;">Q3: Review updates to available measures and MVPs for ${year + 1}</li>
+                        <li style="padding: 5px 0;">Q4: Review new clinicians, update groupings, and incorporate new data elements</li>
                     </ul>
                 </div>
             </div>
@@ -1943,6 +1959,79 @@ window.deleteScenario = deleteScenario;
 window.createNewScenario = createNewScenario;
 window.updateScenarioDropdown = updateScenarioDropdown;
 window.updateTINNumber = updateTINNumber;
+
+// Modal functions
+window.showMeasureDetails = function(year, type) {
+    const modal = document.getElementById('measureModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    
+    const plan = yearlyPlan[year];
+    const measures = type === 'new' ? plan.newMeasures : plan.improveMeasures;
+    
+    modalTitle.textContent = `Year ${year} - ${type === 'new' ? 'New Measures to Implement' : 'Measures to Improve'}`;
+    
+    let html = '<div class="measure-list">';
+    
+    measures.forEach(measureId => {
+        const measure = measures.find(m => m.measure_id === measureId);
+        if (!measure) return;
+        
+        // Find MVP and configuration for this measure
+        let mvpName = '';
+        let readiness = 3;
+        let collectionType = 'MIPS CQM';
+        
+        Object.keys(mvpSelections).forEach(mvpId => {
+            if (mvpSelections[mvpId].measures.includes(measureId)) {
+                const mvp = mvps.find(m => m.mvp_id === mvpId);
+                if (mvp) mvpName = mvp.mvp_name;
+                
+                const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
+                readiness = config.readiness || measure.readiness || 3;
+                collectionType = mvpSelections[mvpId].configs[measureId]?.collectionType || 'MIPS CQM';
+            }
+        });
+        
+        const benchmark = benchmarks.find(b => 
+            b.measure_id === measureId && 
+            b.collection_type === collectionType
+        );
+        const medianBenchmark = benchmark?.decile_5 || measure.median_benchmark || 75;
+        const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y';
+        
+        html += `
+            <div class="measure-list-item">
+                <strong>${measureId}: ${measure.measure_name}</strong>
+                <div class="measure-meta-info">
+                    <span>MVP: ${mvpName}</span>
+                    <span>Readiness: ${readiness}/5</span>
+                    <span>Collection: ${collectionType}</span>
+                    <span>Median: ${medianBenchmark.toFixed(2)}%</span>
+                    ${isInverse ? '<span style="color: #dc3545;">Inverse Measure</span>' : ''}
+                    ${type === 'new' ? `<span>Status: New Implementation</span>` : '<span>Status: Improvement Phase</span>'}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    modalBody.innerHTML = html;
+    modal.style.display = 'block';
+};
+
+window.closeMeasureModal = function() {
+    const modal = document.getElementById('measureModal');
+    modal.style.display = 'none';
+};
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('measureModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+};
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);
