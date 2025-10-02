@@ -1,5 +1,5 @@
-// MVP Strategic Planning Tool - ENHANCED VERSION
-console.log('MVP Tool Starting - Enhanced Version with TIN Analysis...');
+// MVP Strategic Planning Tool - PROFESSIONAL VERSION WITH ALL FIXES
+console.log('MVP Tool Starting - Professional Version with Corrected Functionality...');
 
 // Configuration
 const SHEET_ID = '1CHs8cP3mDQkwG-XL-B7twFVukRxcB4umn9VX9ZK2VqM';
@@ -14,14 +14,14 @@ let mvpSelections = {};
 let mvpPerformance = {};
 let selectedClinicians = new Set();
 let currentMVP = null;
-let currentMode = 'tin-analysis'; // Start with TIN Analysis
+let currentMode = 'tin-analysis';
 let savedScenarios = {};
 let currentScenarioName = 'Default';
 
 // New state for enhanced features
 let selectedSpecialties = new Set();
-let measureEstimates = {}; // Store single estimate per measure instead of per clinician
-let measureConfigurations = {}; // Store enhanced measure configurations
+let measureEstimates = {};
+let measureConfigurations = {};
 let yearlyPlan = {
     2025: { mvps: [], measures: [], focus: 'Foundation - High readiness measures' },
     2026: { mvps: [], measures: [], focus: 'Expansion - Add specialty MVPs' },
@@ -30,11 +30,12 @@ let yearlyPlan = {
     2029: { mvps: [], measures: [], focus: 'Excellence - Full MVP implementation' }
 };
 let currentYear = 2025;
+let globalTINNumber = '123456789'; // Default TIN, will be updated from sheet
 
 // MVP recommendations based on specialty
 const mvpRecommendations = {
     'Family Practice': 'Value in Primary Care MVP',
-    'Family Medicine': 'Value in Primary Care MVP',
+    'Family Medicine': 'Value in Primary Care MVP', 
     'Internal Medicine': 'Value in Primary Care MVP',
     'Emergency Medicine': 'Adopting Best Practices and Promoting Patient Safety within Emergency Medicine MVP',
     'Orthopedic Surgery': 'Improving Care for Lower Extremity Joint Repair MVP',
@@ -51,7 +52,7 @@ const mvpRecommendations = {
 
 // Initialize the application
 async function init() {
-    console.log('Initializing Enhanced MVP tool...');
+    console.log('Initializing Professional MVP tool...');
     const statusEl = document.getElementById('connection-status');
     
     try {
@@ -70,12 +71,8 @@ async function init() {
         
         document.getElementById('main-app').style.display = 'block';
         
-        // Load saved scenarios from localStorage
         loadSavedScenarios();
-        
         setupInterface();
-        
-        // Start with TIN Analysis
         switchToMode('tin-analysis');
         
     } catch (error) {
@@ -85,12 +82,12 @@ async function init() {
     }
 }
 
-// Keep existing loadData function as is
+// Load data from API with proper benchmark loading
 async function loadData() {
     console.log('Loading data from API...');
     
     try {
-        // Load clinicians using /api/sheets/clinicians format
+        // Load clinicians
         console.log('Fetching clinicians from /api/sheets/clinicians...');
         const response = await fetch('/api/sheets/clinicians');
         
@@ -105,7 +102,6 @@ async function loadData() {
         clinicians = cliniciansData.map(row => {
             let name = 'Unknown';
             
-            // Try different name field combinations
             if (row['first_name'] && row['last_name']) {
                 name = `${row['first_name']} ${row['last_name']}`.trim();
             } else if (row['First Name'] && row['Last Name']) {
@@ -120,6 +116,11 @@ async function loadData() {
                 name = row['Name'].trim();
             }
             
+            // Get TIN from first clinician if available
+            if (row.tin || row.TIN) {
+                globalTINNumber = row.tin || row.TIN;
+            }
+            
             return {
                 npi: row.npi || row.NPI || '',
                 name: name,
@@ -128,6 +129,9 @@ async function loadData() {
                 separate_ehr: row.separate_ehr || row['Separate EHR'] || 'No'
             };
         });
+        
+        // Update TIN display
+        updateTINNumber(globalTINNumber);
         
         // Load MVPs
         console.log('Fetching MVPs from /api/sheets/mvps...');
@@ -146,7 +150,7 @@ async function loadData() {
             console.log(`Loaded ${mvps.length} MVPs`);
         }
         
-        // Load measures with enhanced configuration fields
+        // Load measures
         console.log('Fetching measures from /api/sheets/measures...');
         const measuresResponse = await fetch('/api/sheets/measures');
         
@@ -169,7 +173,7 @@ async function loadData() {
             console.log(`Loaded ${measures.length} measures`);
         }
         
-        // Load benchmarks
+        // LOAD BENCHMARKS - CRITICAL FOR SCORING!
         console.log('Fetching benchmarks from /api/sheets/benchmarks...');
         const benchmarksResponse = await fetch('/api/sheets/benchmarks');
         
@@ -196,9 +200,14 @@ async function loadData() {
             }));
             
             console.log(`Loaded ${benchmarks.length} benchmarks`);
-        } else {
-            console.log('No benchmarks loaded, using defaults');
-            benchmarks = [];
+            
+            // Update measures with median benchmark from benchmarks if available
+            measures.forEach(measure => {
+                const benchmark = benchmarks.find(b => b.measure_id === measure.measure_id);
+                if (benchmark && benchmark.median_performance) {
+                    measure.median_benchmark = benchmark.median_performance;
+                }
+            });
         }
         
     } catch (error) {
@@ -216,13 +225,11 @@ async function loadData() {
         
         mvps = [
             { mvp_id: 'MVP001', mvp_name: 'Value in Primary Care MVP', specialties: 'Family Medicine', available_measures: 'Q001,Q112,Q113,Q134' },
-            { mvp_id: 'MVP002', mvp_name: 'Adopting Best Practices and Promoting Patient Safety within Emergency Medicine MVP', specialties: 'Emergency Medicine', available_measures: 'Q065,Q116,Q254,Q255' }
+            { mvp_id: 'MVP002', mvp_name: 'Emergency Medicine MVP', specialties: 'Emergency Medicine', available_measures: 'Q065,Q116,Q254,Q255' }
         ];
         
         measures = [
-            { measure_id: 'Q001', measure_name: 'Diabetes Control', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Easy', is_inverse: 'Y', setup_time: '2 months', readiness: 4, prerequisites: 'EHR integration', median_benchmark: 72 },
-            { measure_id: 'Q112', measure_name: 'Breast Cancer Screening', is_activated: 'Y', collection_types: 'eCQM, MIPS CQM', difficulty: 'Medium', setup_time: '3 months', readiness: 3, prerequisites: 'Registry setup', median_benchmark: 68 },
-            { measure_id: 'Q113', measure_name: 'Colorectal Cancer Screening', is_activated: 'N', collection_types: 'MIPS CQM', difficulty: 'Hard', setup_time: '6 months', readiness: 2, prerequisites: 'Complex workflow', median_benchmark: 65 }
+            { measure_id: 'Q001', measure_name: 'Diabetes Control', is_activated: 'Y', collection_types: 'eCQM,MIPS CQM', difficulty: 'Easy', is_inverse: 'Y', setup_time: '2 months', readiness: 4, prerequisites: 'EHR integration', median_benchmark: 72 }
         ];
         
         benchmarks = [];
@@ -235,7 +242,6 @@ async function loadData() {
 function renderTINAnalysis() {
     console.log('Rendering TIN Analysis...');
     
-    // Calculate specialty distribution
     const specialtyCount = {};
     const specialtyClinicians = {};
     
@@ -268,16 +274,22 @@ function renderTINAnalysis() {
     // Sort specialties by count (descending)
     const sortedSpecialties = Object.entries(specialtyCount).sort((a, b) => b[1] - a[1]);
     
+    // Auto-select specialties with MVP recommendations
     sortedSpecialties.forEach(([specialty, count]) => {
+        const recommendedMVP = mvpRecommendations[specialty];
+        const mvp = mvps.find(m => m.mvp_name === recommendedMVP);
+        
+        // Auto-select if has recommendation
+        if (recommendedMVP && mvp) {
+            selectedSpecialties.add(specialty);
+        }
+        
         const card = document.createElement('div');
         card.className = 'specialty-card';
         if (selectedSpecialties.has(specialty)) {
             card.classList.add('selected');
         }
         card.dataset.specialty = specialty;
-        
-        const recommendedMVP = mvpRecommendations[specialty];
-        const mvp = mvps.find(m => m.mvp_name === recommendedMVP);
         
         card.innerHTML = `
             <div class="specialty-header">
@@ -290,7 +302,7 @@ function renderTINAnalysis() {
                     ${recommendedMVP}
                 </div>
             ` : `
-                <div style="color: #6c757d; font-style: italic; margin-top: 10px;">
+                <div style="color: #586069; font-style: italic; margin-top: 10px;">
                     No specific MVP recommendation
                 </div>
             `}
@@ -318,26 +330,10 @@ function toggleSpecialtySelection(specialty) {
     }
 }
 
-function autoGenerateRecommendations() {
-    // Clear current selections
-    selectedSpecialties.clear();
-    document.querySelectorAll('.specialty-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    
-    // Select specialties with MVP recommendations
-    Object.keys(mvpRecommendations).forEach(specialty => {
-        const hasSpecialty = clinicians.some(c => c.specialty === specialty);
-        if (hasSpecialty) {
-            selectedSpecialties.add(specialty);
-            const card = document.querySelector(`[data-specialty="${specialty}"]`);
-            if (card) {
-                card.classList.add('selected');
-            }
-        }
-    });
-    
-    alert(`Auto-selected ${selectedSpecialties.size} specialties with MVP recommendations`);
+function updateTINNumber(value) {
+    globalTINNumber = value;
+    document.getElementById('tin-number').textContent = value;
+    document.getElementById('tin-number-input').value = value;
 }
 
 function createSubgroups() {
@@ -370,7 +366,7 @@ function createSubgroups() {
     alert(`Created ${Object.keys(assignments).length} MVP subgroups`);
 }
 
-// Performance Estimation Functions (Simplified)
+// Performance Estimation with CORRECT decile calculation
 function renderPerformanceEstimation() {
     const container = document.getElementById('performance-cards');
     if (!container) return;
@@ -393,7 +389,7 @@ function renderPerformanceEstimation() {
         
         let html = `
             <div class="mvp-performance-header">${mvp.mvp_name}</div>
-            <div style="color: #6c757d; margin-bottom: 15px;">
+            <div style="color: #586069; margin-bottom: 15px;">
                 ${assignments[mvp.mvp_id].length} clinicians assigned
             </div>
         `;
@@ -404,26 +400,34 @@ function renderPerformanceEstimation() {
                 const measure = measures.find(m => m.measure_id === measureId);
                 if (!measure) return;
                 
-                // Get median benchmark from measure or benchmarks
+                // Get the actual median benchmark
+                const config = selections.configs[measureId] || {};
+                const collectionType = config.collectionType || 'MIPS CQM';
                 const benchmark = benchmarks.find(b => 
                     b.measure_id === measureId && 
-                    b.collection_type === (selections.configs[measureId]?.collectionType || 'MIPS CQM')
+                    b.collection_type === collectionType
                 );
-                const medianBenchmark = benchmark?.median_performance || measure.median_benchmark || 75;
+                
+                // Use benchmark median if available, otherwise use measure's median_benchmark
+                const medianBenchmark = benchmark?.median_performance || benchmark?.decile_5 || measure.median_benchmark;
+                
+                const isInverse = benchmark?.is_inverse === 'Y' || benchmark?.is_inverse === 'Yes' || 
+                                 measure.is_inverse === 'Y' || measure.is_inverse === 'Yes';
                 
                 html += `
                     <div class="measure-estimation">
-                        <div class="measure-name">${measureId}: ${measure.measure_name}</div>
+                        <div class="measure-name">
+                            ${measureId}: ${measure.measure_name}
+                            ${isInverse ? '<span style="color: #dc3545; font-size: 11px;"> (Inverse)</span>' : ''}
+                        </div>
                         <input type="number" 
                                class="estimation-input" 
                                min="0" max="100" 
                                value="${measureEstimates[`${mvp.mvp_id}_${measureId}`] || ''}"
                                placeholder="Est %"
                                onchange="updateMeasureEstimate('${mvp.mvp_id}', '${measureId}', this.value)">
-                        <div class="benchmark-value">Benchmark: ${medianBenchmark.toFixed(0)}%</div>
-                        <div id="score-${mvp.mvp_id}-${measureId}" style="text-align: center; font-weight: bold;">
-                            --
-                        </div>
+                        <div class="benchmark-value">Median: ${medianBenchmark.toFixed(0)}%</div>
+                        <div id="score-${mvp.mvp_id}-${measureId}" class="score-value">--</div>
                     </div>
                 `;
             });
@@ -431,8 +435,8 @@ function renderPerformanceEstimation() {
         
         html += `
             <div class="score-summary" id="mvp-score-${mvp.mvp_id}">
-                <div style="font-size: 14px; color: #6c757d;">Composite Score</div>
-                <div style="font-size: 32px; font-weight: bold; color: #667eea;">--</div>
+                <div style="font-size: 14px; color: #586069;">Total Points</div>
+                <div class="composite-score">--</div>
             </div>
         `;
         
@@ -445,55 +449,183 @@ function updateMeasureEstimate(mvpId, measureId, value) {
     const key = `${mvpId}_${measureId}`;
     measureEstimates[key] = parseFloat(value) || 0;
     
-    // Calculate score for this measure
-    const score = calculateSimplifiedScore(measureId, value);
+    // Calculate score using proper decile calculation
+    const selections = mvpSelections[mvpId];
+    const config = selections?.configs[measureId] || {};
+    const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', parseFloat(value) || 0);
+    
     const scoreEl = document.getElementById(`score-${mvpId}-${measureId}`);
     if (scoreEl) {
-        scoreEl.textContent = `${score.toFixed(1)} pts`;
+        scoreEl.textContent = `${decileInfo.points.toFixed(1)} pts`;
     }
     
-    // Update MVP composite score
-    updateMVPCompositeScore(mvpId);
+    // Update MVP total score (sum, not average)
+    updateMVPTotalScore(mvpId);
 }
 
-function calculateSimplifiedScore(measureId, performanceRate) {
-    // Simple scoring: divide performance into deciles
-    const rate = parseFloat(performanceRate) || 0;
+// CORRECT calculateDecile function from original
+function calculateDecile(measureId, collectionType, performanceRate) {
+    // Find the specific benchmark for this measure and collection type
+    const benchmark = benchmarks.find(b => 
+        b.measure_id === measureId && 
+        b.collection_type === collectionType
+    );
     
-    if (rate >= 95) return 10.0;
-    if (rate >= 90) return 9.0;
-    if (rate >= 85) return 8.0;
-    if (rate >= 80) return 7.0;
-    if (rate >= 75) return 6.0;
-    if (rate >= 70) return 5.0;
-    if (rate >= 60) return 4.0;
-    if (rate >= 50) return 3.0;
-    if (rate >= 40) return 2.0;
-    return 1.0;
+    if (!benchmark) {
+        console.log(`No benchmark found for ${measureId} - ${collectionType}, using defaults`);
+        // Fallback to simple calculation if no benchmark found
+        if (performanceRate >= 95) return { decile: 10, points: 10.0 };
+        if (performanceRate >= 90) return { decile: 9, points: 9.0 };
+        if (performanceRate >= 85) return { decile: 8, points: 8.0 };
+        if (performanceRate >= 80) return { decile: 7, points: 7.0 };
+        if (performanceRate >= 75) return { decile: 6, points: 6.0 };
+        if (performanceRate >= 70) return { decile: 5, points: 5.0 };
+        if (performanceRate >= 60) return { decile: 4, points: 4.0 };
+        if (performanceRate >= 50) return { decile: 3, points: 3.0 };
+        if (performanceRate >= 40) return { decile: 2, points: 2.0 };
+        return { decile: 1, points: 1.0 };
+    }
+    
+    // Check if this is an inverse measure
+    const measure = measures.find(m => m.measure_id === measureId);
+    const isInverse = benchmark.is_inverse === 'Y' || benchmark.is_inverse === 'Yes' || 
+                     benchmark.is_inverse === true || benchmark.is_inverse === 'TRUE' ||
+                     measure?.is_inverse === 'Y' || measure?.is_inverse === 'Yes';
+    
+    let decile = 1;
+    let points = 1.0;
+    
+    if (isInverse) {
+        // INVERSE MEASURE: Lower is better
+        if (performanceRate <= benchmark.decile_10) {
+            decile = 10;
+            points = 10.0;
+        } else if (performanceRate <= benchmark.decile_9) {
+            decile = 9;
+            points = 9.0;
+        } else if (performanceRate <= benchmark.decile_8) {
+            decile = 8;
+            points = 8.0;
+        } else if (performanceRate <= benchmark.decile_7) {
+            decile = 7;
+            points = 7.0;
+        } else if (performanceRate <= benchmark.decile_6) {
+            decile = 6;
+            points = 6.0;
+        } else if (performanceRate <= benchmark.decile_5) {
+            decile = 5;
+            points = 5.0;
+        } else if (performanceRate <= benchmark.decile_4) {
+            decile = 4;
+            points = 4.0;
+        } else if (performanceRate <= benchmark.decile_3) {
+            decile = 3;
+            points = 3.0;
+        } else if (performanceRate <= benchmark.decile_2) {
+            decile = 2;
+            points = 2.0;
+        } else {
+            decile = 1;
+            points = 1.0;
+        }
+    } else {
+        // NORMAL MEASURE: Higher is better
+        if (performanceRate >= benchmark.decile_10) {
+            decile = 10;
+            points = 10.0;
+        } else if (performanceRate >= benchmark.decile_9) {
+            decile = 9;
+            points = 9.0;
+        } else if (performanceRate >= benchmark.decile_8) {
+            decile = 8;
+            points = 8.0;
+        } else if (performanceRate >= benchmark.decile_7) {
+            decile = 7;
+            points = 7.0;
+        } else if (performanceRate >= benchmark.decile_6) {
+            decile = 6;
+            points = 6.0;
+        } else if (performanceRate >= benchmark.decile_5) {
+            decile = 5;
+            points = 5.0;
+        } else if (performanceRate >= benchmark.decile_4) {
+            decile = 4;
+            points = 4.0;
+        } else if (performanceRate >= benchmark.decile_3) {
+            decile = 3;
+            points = 3.0;
+        } else if (performanceRate >= benchmark.decile_2) {
+            decile = 2;
+            points = 2.0;
+        } else {
+            decile = 1;
+            points = 1.0;
+        }
+    }
+    
+    // Add fractional points within decile (optional, from original)
+    if (decile < 10 && decile > 0) {
+        try {
+            const currentThreshold = benchmark[`decile_${decile}`];
+            const nextThreshold = benchmark[`decile_${Math.min(decile + 1, 10)}`];
+            
+            if (currentThreshold !== undefined && nextThreshold !== undefined) {
+                let progress;
+                
+                if (isInverse) {
+                    if (decile === 1) {
+                        progress = 0;
+                    } else {
+                        const worseThreshold = decile === 1 ? 100 : benchmark[`decile_${decile - 1}`] || 100;
+                        progress = (worseThreshold - performanceRate) / (worseThreshold - currentThreshold);
+                    }
+                } else {
+                    if (decile === 1) {
+                        progress = performanceRate / currentThreshold;
+                    } else {
+                        const lowerThreshold = benchmark[`decile_${decile - 1}`] || 0;
+                        progress = (performanceRate - lowerThreshold) / (currentThreshold - lowerThreshold);
+                    }
+                }
+                
+                if (progress > 0 && progress <= 1) {
+                    points = (decile - 1) + Math.min(progress, 1) * 0.9 + 0.1;
+                }
+            }
+        } catch (e) {
+            console.log('Error calculating fractional points:', e);
+        }
+    }
+    
+    return { 
+        decile: decile, 
+        points: parseFloat(points.toFixed(1))
+    };
 }
 
-function updateMVPCompositeScore(mvpId) {
+function updateMVPTotalScore(mvpId) {
     const selections = mvpSelections[mvpId];
     if (!selections || selections.measures.length === 0) return;
     
-    let totalScore = 0;
+    let totalPoints = 0;
     let count = 0;
     
     selections.measures.forEach(measureId => {
         const estimate = measureEstimates[`${mvpId}_${measureId}`];
         if (estimate !== undefined && estimate !== null) {
-            totalScore += calculateSimplifiedScore(measureId, estimate);
+            const config = selections.configs[measureId] || {};
+            const decileInfo = calculateDecile(measureId, config.collectionType || 'MIPS CQM', estimate);
+            totalPoints += decileInfo.points;
             count++;
         }
     });
     
-    const compositeScore = count > 0 ? totalScore / count : 0;
-    
+    // Display TOTAL points, not average
     const scoreEl = document.getElementById(`mvp-score-${mvpId}`);
     if (scoreEl) {
         scoreEl.innerHTML = `
-            <div style="font-size: 14px; color: #6c757d;">Composite Score</div>
-            <div style="font-size: 32px; font-weight: bold; color: #667eea;">${compositeScore.toFixed(1)}</div>
+            <div style="font-size: 14px; color: #586069;">Total Points (${count} measures)</div>
+            <div class="composite-score">${totalPoints.toFixed(1)}</div>
         `;
     }
 }
@@ -506,37 +638,106 @@ function calculateTotalScores() {
     );
     
     activeMVPs.forEach(mvp => {
-        updateMVPCompositeScore(mvp.mvp_id);
+        updateMVPTotalScore(mvp.mvp_id);
     });
     
-    alert('Scores calculated! Review the composite scores for each MVP.');
+    alert('Scores calculated! Review the total points for each MVP.');
 }
 
-// Executive Dashboard Functions
+// Executive Dashboard with readiness-based planning
 function renderExecutiveDashboard() {
-    // Create yearly plan based on MVP readiness
-    const activeMVPs = Object.keys(assignments);
+    // Create yearly plan based on measure readiness and setup time
+    const mvpMeasureData = [];
     
-    if (activeMVPs.length > 0) {
-        // Distribute MVPs across years
-        const mvpsPerYear = Math.ceil(activeMVPs.length / 3);
-        
-        yearlyPlan[2025].mvps = activeMVPs.slice(0, mvpsPerYear);
-        yearlyPlan[2026].mvps = activeMVPs.slice(mvpsPerYear, mvpsPerYear * 2);
-        yearlyPlan[2027].mvps = activeMVPs.slice(mvpsPerYear * 2);
-        yearlyPlan[2028].mvps = activeMVPs;
-        yearlyPlan[2029].mvps = activeMVPs;
-        
-        // Calculate measures per year
-        Object.keys(yearlyPlan).forEach(year => {
-            yearlyPlan[year].measures = [];
-            yearlyPlan[year].mvps.forEach(mvpId => {
-                if (mvpSelections[mvpId]) {
-                    yearlyPlan[year].measures.push(...mvpSelections[mvpId].measures);
+    // Collect all MVP-measure combinations with readiness and setup time
+    Object.keys(assignments).forEach(mvpId => {
+        if (mvpSelections[mvpId] && mvpSelections[mvpId].measures.length > 0) {
+            mvpSelections[mvpId].measures.forEach(measureId => {
+                const measure = measures.find(m => m.measure_id === measureId);
+                const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
+                
+                // Parse setup time to months
+                let setupMonths = 3;
+                const setupTime = config.setupTime || measure?.setup_time || '3 months';
+                if (setupTime.includes('month')) {
+                    setupMonths = parseInt(setupTime) || 3;
+                } else if (setupTime.includes('year')) {
+                    setupMonths = parseInt(setupTime) * 12 || 12;
                 }
+                
+                mvpMeasureData.push({
+                    mvpId: mvpId,
+                    measureId: measureId,
+                    readiness: config.readiness || measure?.readiness || 3,
+                    setupMonths: setupMonths,
+                    difficulty: measure?.difficulty || 'Medium',
+                    isActivated: measure?.is_activated === 'Y'
+                });
             });
-        });
-    }
+        }
+    });
+    
+    // Sort by readiness (high to low) and setup time (short to long)
+    mvpMeasureData.sort((a, b) => {
+        // Already activated measures first
+        if (a.isActivated !== b.isActivated) {
+            return a.isActivated ? -1 : 1;
+        }
+        // Then by readiness
+        if (b.readiness !== a.readiness) {
+            return b.readiness - a.readiness;
+        }
+        // Then by setup time
+        return a.setupMonths - b.setupMonths;
+    });
+    
+    // Distribute across years based on implementation capacity
+    const yearCapacity = {
+        2025: 12, // 12 months of implementation capacity
+        2026: 12,
+        2027: 12,
+        2028: 12,
+        2029: 12
+    };
+    
+    const yearMVPs = {
+        2025: new Set(),
+        2026: new Set(),
+        2027: new Set(),
+        2028: new Set(),
+        2029: new Set()
+    };
+    
+    const yearMeasures = {
+        2025: [],
+        2026: [],
+        2027: [],
+        2028: [],
+        2029: []
+    };
+    
+    let currentYearIdx = 0;
+    const years = [2025, 2026, 2027, 2028, 2029];
+    let remainingCapacity = yearCapacity[years[currentYearIdx]];
+    
+    mvpMeasureData.forEach(item => {
+        // Find appropriate year based on capacity
+        while (currentYearIdx < years.length - 1 && remainingCapacity < item.setupMonths) {
+            currentYearIdx++;
+            remainingCapacity = yearCapacity[years[currentYearIdx]];
+        }
+        
+        const year = years[currentYearIdx];
+        yearMVPs[year].add(item.mvpId);
+        yearMeasures[year].push(item);
+        remainingCapacity -= item.setupMonths;
+    });
+    
+    // Update yearlyPlan
+    Object.keys(yearlyPlan).forEach(year => {
+        yearlyPlan[year].mvps = Array.from(yearMVPs[year]);
+        yearlyPlan[year].measures = yearMeasures[year].map(item => item.measureId);
+    });
     
     selectYear(2025);
 }
@@ -559,7 +760,7 @@ function selectYear(year) {
     let html = `
         <div class="year-details">
             <h3>Year ${year} Implementation Plan</h3>
-            <p style="color: #6c757d; margin-bottom: 20px;">
+            <p style="color: #586069; margin-bottom: 20px;">
                 <strong>Focus:</strong> ${plan.focus}
             </p>
             
@@ -575,12 +776,16 @@ function selectYear(year) {
                 </div>
                 
                 <div class="implementation-card">
-                    <h4>Measures (${plan.measures.length})</h4>
-                    <p>Implementing ${plan.measures.length} quality measures</p>
+                    <h4>Measures to Implement (${plan.measures.length})</h4>
                     <ul style="list-style: none; padding: 0;">
                         ${plan.measures.slice(0, 5).map(measureId => {
                             const measure = measures.find(m => m.measure_id === measureId);
-                            return measure ? `<li style="padding: 5px 0;">${measureId}: ${measure.measure_name}</li>` : '';
+                            const readiness = measureConfigurations[Object.keys(measureConfigurations).find(k => k.includes(measureId))]?.readiness || measure?.readiness || 3;
+                            return measure ? `
+                                <li style="padding: 5px 0;">
+                                    ${measureId}: ${measure.measure_name}
+                                    <span style="font-size: 12px; color: #586069;">(Readiness: ${readiness}/5)</span>
+                                </li>` : '';
                         }).join('')}
                         ${plan.measures.length > 5 ? `<li style="padding: 5px 0; font-style: italic;">... and ${plan.measures.length - 5} more</li>` : ''}
                     </ul>
@@ -589,10 +794,10 @@ function selectYear(year) {
                 <div class="implementation-card">
                     <h4>Key Milestones</h4>
                     <ul style="list-style: none; padding: 0;">
-                        <li style="padding: 5px 0;">Q1: Staff training and system preparation</li>
-                        <li style="padding: 5px 0;">Q2: Initial measure implementation</li>
-                        <li style="padding: 5px 0;">Q3: Performance monitoring</li>
-                        <li style="padding: 5px 0;">Q4: Year-end review</li>
+                        <li style="padding: 5px 0;">Q1: High readiness measure implementation</li>
+                        <li style="padding: 5px 0;">Q2: Staff training and workflow adjustments</li>
+                        <li style="padding: 5px 0;">Q3: Performance monitoring and optimization</li>
+                        <li style="padding: 5px 0;">Q4: Preparation for next year's measures</li>
                     </ul>
                 </div>
             </div>
@@ -648,7 +853,7 @@ function switchToMode(mode) {
     currentMode = mode;
 }
 
-// Enhanced measure configuration in planning mode
+// Enhanced measure configuration with collection type selector
 function renderEnhancedMeasuresTab(mvp) {
     const container = document.getElementById('mvp-details');
     if (!container) return;
@@ -678,6 +883,17 @@ function renderEnhancedMeasuresTab(mvp) {
         const isSelected = selections.measures.includes(measureId);
         const isActivated = measure.is_activated === 'Y';
         const config = measureConfigurations[`${mvp.mvp_id}_${measureId}`] || {};
+        const availableTypes = measure.collection_types ? 
+            measure.collection_types.split(',').map(t => t.trim()) : ['MIPS CQM'];
+        
+        // Get actual median benchmark
+        const benchmark = benchmarks.find(b => 
+            b.measure_id === measureId && 
+            b.collection_type === (config.collectionType || availableTypes[0])
+        );
+        const medianBenchmark = benchmark?.median_performance || benchmark?.decile_5 || measure.median_benchmark;
+        
+        const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y';
         
         html += `
             <div class="measure-card ${isSelected ? 'selected' : ''} ${isActivated ? 'activated' : ''}">
@@ -692,20 +908,30 @@ function renderEnhancedMeasuresTab(mvp) {
                             <span class="measure-name">${measure.measure_name}</span>
                         </div>
                         <div class="measure-meta">
-                            <span class="collection-types">Available: ${measure.collection_types}</span>
+                            <span class="collection-types">Available: ${availableTypes.join(', ')}</span>
                             <span class="difficulty difficulty-${(measure.difficulty || 'Medium').toLowerCase()}">
-                                ${measure.difficulty || 'Medium'} Implementation
+                                ${measure.difficulty || 'Medium'}
                             </span>
                         </div>
                         ${isActivated ? '<span class="badge activated">Already Activated</span>' : '<span class="badge new">New Measure</span>'}
-                        ${measure.is_inverse === 'Y' ? '<span class="badge" style="background: #ffeeba; color: #856404;">Inverse Measure</span>' : ''}
-                        <div style="margin-top: 8px; font-size: 12px; color: #6c757d;">
-                            Median Benchmark: ${measure.median_benchmark}%
+                        ${isInverse ? '<span class="badge inverse">Inverse Measure</span>' : ''}
+                        <div style="margin-top: 8px; font-size: 12px; color: #586069;">
+                            Median Benchmark: ${medianBenchmark.toFixed(0)}%
                         </div>
                     </div>
                 </label>
                 ${isSelected ? `
                     <div class="measure-config">
+                        ${availableTypes.length > 1 ? `
+                            <div class="config-item">
+                                <label class="config-label">Collection Type</label>
+                                <select class="config-select" onchange="setCollectionType('${mvp.mvp_id}', '${measureId}', this.value)">
+                                    ${availableTypes.map(type => 
+                                        `<option value="${type}" ${selections.configs[measureId]?.collectionType === type ? 'selected' : ''}>${type}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                        ` : ''}
                         <div class="config-item">
                             <label class="config-label">Setup Time</label>
                             <input type="text" class="config-input" 
@@ -738,72 +964,7 @@ function renderEnhancedMeasuresTab(mvp) {
     container.innerHTML = html;
 }
 
-// Update measure configuration
-function updateMeasureConfig(mvpId, measureId, field, value) {
-    const key = `${mvpId}_${measureId}`;
-    if (!measureConfigurations[key]) {
-        measureConfigurations[key] = {};
-    }
-    measureConfigurations[key][field] = value;
-    
-    // Update UI if needed
-    if (field === 'readiness') {
-        document.querySelectorAll(`.readiness-btn`).forEach(btn => {
-            const btnValue = parseInt(btn.textContent);
-            if (btn.onclick.toString().includes(measureId)) {
-                btn.classList.toggle('selected', btnValue === value);
-            }
-        });
-    }
-}
-
-// Export enhanced plan
-function exportPlan() {
-    const exportData = {
-        timestamp: new Date().toISOString(),
-        scenario: currentScenarioName,
-        tin_analysis: {
-            total_clinicians: clinicians.length,
-            specialties: [...new Set(clinicians.map(c => c.specialty))].length,
-            selected_specialties: Array.from(selectedSpecialties)
-        },
-        assignments: assignments,
-        selections: mvpSelections,
-        measure_configurations: measureConfigurations,
-        performance_estimates: measureEstimates,
-        yearly_plan: yearlyPlan,
-        summary: {
-            total_clinicians: clinicians.length,
-            assigned: Object.values(assignments).flat().length,
-            active_mvps: Object.keys(assignments).filter(id => assignments[id]?.length > 0).length
-        }
-    };
-    
-    // Create CSV for Excel
-    let csvContent = "Year,MVP,Clinicians,Measures,Setup Time,Readiness,Focus\n";
-    
-    Object.entries(yearlyPlan).forEach(([year, plan]) => {
-        plan.mvps.forEach(mvpId => {
-            const mvp = mvps.find(m => m.mvp_id === mvpId);
-            const clinicianCount = assignments[mvpId]?.length || 0;
-            const measureCount = mvpSelections[mvpId]?.measures.length || 0;
-            
-            csvContent += `${year},"${mvp?.mvp_name || mvpId}",${clinicianCount},${measureCount},,"${plan.focus}"\n`;
-        });
-    });
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mvp-strategic-plan-${currentScenarioName}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-}
-
-// Keep all existing functions from original app.js
-// (setupInterface, renderPlanningMode, renderClinicians, renderMVPs, etc.)
-// Just update renderMeasuresTab to use renderEnhancedMeasuresTab
-
+// Keep all other functions from original (setupInterface, renderPlanningMode, etc.)
 function setupInterface() {
     setupFilters();
     setupEventHandlers();
@@ -866,9 +1027,6 @@ function renderPlanningMode() {
     renderMVPs();
     renderDetails();
 }
-
-// Keep all other existing functions from original app.js
-// (renderClinicians, renderMVPs, renderDetails, renderCliniciansTab, renderWorkTab, etc.)
 
 function renderClinicians() {
     const container = document.getElementById('clinician-list');
@@ -1004,21 +1162,26 @@ function renderCliniciansTab(mvp) {
     container.innerHTML = html;
 }
 
-// Keep all Review Mode functions from original
-function renderReviewMode() {
-    currentMode = 'review';
+// Update measure configuration
+function updateMeasureConfig(mvpId, measureId, field, value) {
+    const key = `${mvpId}_${measureId}`;
+    if (!measureConfigurations[key]) {
+        measureConfigurations[key] = {};
+    }
+    measureConfigurations[key][field] = value;
     
-    const planningEl = document.getElementById('planning-mode');
-    const reviewEl = document.getElementById('review-mode');
-    
-    if (planningEl) planningEl.style.display = 'none';
-    if (reviewEl) reviewEl.style.display = 'block';
-    
-    // Use original renderReviewMode logic here
-    // ... (keep all the original review mode code)
+    // Update UI if needed
+    if (field === 'readiness') {
+        document.querySelectorAll(`.readiness-btn`).forEach(btn => {
+            const btnValue = parseInt(btn.textContent);
+            if (btn.onclick.toString().includes(measureId)) {
+                btn.classList.toggle('selected', btnValue === value);
+            }
+        });
+    }
 }
 
-// Keep all helper functions from original
+// Helper functions
 function toggleSelection(npi) {
     if (selectedClinicians.has(npi)) {
         selectedClinicians.delete(npi);
@@ -1121,6 +1284,13 @@ function removeAllFromMVP(mvpId) {
         delete mvpSelections[mvpId];
         delete mvpPerformance[mvpId];
         
+        // Clear measure configurations for this MVP
+        Object.keys(measureConfigurations).forEach(key => {
+            if (key.startsWith(mvpId)) {
+                delete measureConfigurations[key];
+            }
+        });
+        
         if (currentMVP === mvpId) {
             currentMVP = null;
         }
@@ -1177,6 +1347,7 @@ function toggleMeasure(mvpId, measureId) {
     } else {
         selections.measures.splice(index, 1);
         delete selections.configs[measureId];
+        delete measureConfigurations[`${mvpId}_${measureId}`];
     }
     
     renderDetails();
@@ -1192,6 +1363,10 @@ function setCollectionType(mvpId, measureId, value) {
     }
     
     mvpSelections[mvpId].configs[measureId].collectionType = value;
+    console.log(`Set ${measureId} to ${value} for MVP ${mvpId}`);
+    
+    // Re-render to update benchmark display
+    renderDetails();
 }
 
 // Scenario Management
@@ -1204,7 +1379,8 @@ function saveScenario() {
         performance: mvpPerformance,
         measureEstimates: measureEstimates,
         measureConfigurations: measureConfigurations,
-        yearlyPlan: yearlyPlan
+        yearlyPlan: yearlyPlan,
+        tinNumber: globalTINNumber
     };
     
     savedScenarios[currentScenarioName] = scenarioData;
@@ -1238,6 +1414,10 @@ function loadScenario(name) {
     measureEstimates = scenario.measureEstimates || {};
     measureConfigurations = scenario.measureConfigurations || {};
     yearlyPlan = scenario.yearlyPlan || yearlyPlan;
+    
+    if (scenario.tinNumber) {
+        updateTINNumber(scenario.tinNumber);
+    }
     
     renderPlanningMode();
     updateStats();
@@ -1319,14 +1499,77 @@ function switchDetailTab(tab) {
     }
 }
 
+// Export function for Executive Dashboard only
+function exportPlan() {
+    const exportData = {
+        timestamp: new Date().toISOString(),
+        scenario: currentScenarioName,
+        tin_number: globalTINNumber,
+        tin_analysis: {
+            total_clinicians: clinicians.length,
+            specialties: [...new Set(clinicians.map(c => c.specialty))].length,
+            selected_specialties: Array.from(selectedSpecialties)
+        },
+        assignments: assignments,
+        selections: mvpSelections,
+        measure_configurations: measureConfigurations,
+        performance_estimates: measureEstimates,
+        yearly_plan: yearlyPlan,
+        summary: {
+            total_clinicians: clinicians.length,
+            assigned: Object.values(assignments).flat().length,
+            active_mvps: Object.keys(assignments).filter(id => assignments[id]?.length > 0).length
+        }
+    };
+    
+    // Create CSV for Excel
+    let csvContent = "Year,MVP,Clinicians,Measures,Average Readiness,Total Setup Time,Focus\n";
+    
+    Object.entries(yearlyPlan).forEach(([year, plan]) => {
+        plan.mvps.forEach(mvpId => {
+            const mvp = mvps.find(m => m.mvp_id === mvpId);
+            const clinicianCount = assignments[mvpId]?.length || 0;
+            const measureCount = mvpSelections[mvpId]?.measures.length || 0;
+            
+            // Calculate average readiness and total setup time
+            let totalReadiness = 0;
+            let totalSetupMonths = 0;
+            
+            if (mvpSelections[mvpId]) {
+                mvpSelections[mvpId].measures.forEach(measureId => {
+                    const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
+                    const measure = measures.find(m => m.measure_id === measureId);
+                    
+                    totalReadiness += config.readiness || measure?.readiness || 3;
+                    
+                    const setupTime = config.setupTime || measure?.setup_time || '3 months';
+                    if (setupTime.includes('month')) {
+                        totalSetupMonths += parseInt(setupTime) || 3;
+                    }
+                });
+            }
+            
+            const avgReadiness = measureCount > 0 ? (totalReadiness / measureCount).toFixed(1) : 0;
+            
+            csvContent += `${year},"${mvp?.mvp_name || mvpId}",${clinicianCount},${measureCount},${avgReadiness},${totalSetupMonths} months,"${plan.focus}"\n`;
+        });
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mvp-strategic-plan-${currentScenarioName}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+}
+
 function setupEventHandlers() {
-    // Any additional event handlers can go here
+    // Any additional event handlers
 }
 
 // Export functions for global access
 window.switchToMode = switchToMode;
 window.toggleSpecialtySelection = toggleSpecialtySelection;
-window.autoGenerateRecommendations = autoGenerateRecommendations;
 window.createSubgroups = createSubgroups;
 window.selectYear = selectYear;
 window.updateMeasureEstimate = updateMeasureEstimate;
@@ -1349,6 +1592,7 @@ window.saveScenario = saveScenario;
 window.saveAsNewScenario = saveAsNewScenario;
 window.loadScenario = loadScenario;
 window.resetScenario = resetScenario;
+window.updateTINNumber = updateTINNumber;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);
