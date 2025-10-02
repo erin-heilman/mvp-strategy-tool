@@ -1013,17 +1013,25 @@ function setupFilters() {
             </div>
         </div>
         <div class="scenario-controls">
+            <span style="font-weight: 500; margin-right: 10px;">Scenario:</span>
             <select id="scenario-selector" onchange="loadScenario(this.value)">
                 <option value="Default">Default Scenario</option>
                 ${Object.keys(savedScenarios).map(name => 
-                    `<option value="${name}">${name}</option>`
+                    name !== 'Default' ? `<option value="${name}">${name}</option>` : ''
                 ).join('')}
+                <option value="new">+ Create New Scenario</option>
             </select>
-            <button onclick="saveScenario()" class="btn-save">Save Scenario</button>
-            <button onclick="saveAsNewScenario()" class="btn-save-as">Save As...</button>
-            <button onclick="resetScenario()" class="btn-reset">Reset Scenario</button>
+            <button onclick="saveScenario()" class="btn-save" title="Save current scenario">Save</button>
+            <button onclick="saveAsNewScenario()" class="btn-save-as" title="Save as new scenario">Save As...</button>
+            <button onclick="deleteScenario()" class="btn-reset" title="Delete current scenario">Delete</button>
         </div>
     `;
+    
+    // Set the current scenario in the dropdown
+    const selector = document.getElementById('scenario-selector');
+    if (selector && currentScenarioName) {
+        selector.value = currentScenarioName;
+    }
 }
 
 function renderPlanningMode() {
@@ -1383,6 +1391,7 @@ function setCollectionType(mvpId, measureId, value) {
 
 // Scenario Management
 function saveScenario() {
+    // Always save to current scenario name
     const scenarioData = {
         name: currentScenarioName,
         timestamp: new Date().toISOString(),
@@ -1399,40 +1408,161 @@ function saveScenario() {
     localStorage.setItem('mvp_scenarios', JSON.stringify(savedScenarios));
     
     alert(`Scenario "${currentScenarioName}" saved successfully!`);
-    setupFilters();
+    
+    // Refresh the scenario dropdown to show new scenarios
+    updateScenarioDropdown();
 }
 
 function saveAsNewScenario() {
-    const name = prompt('Enter a name for this scenario:');
-    if (!name) return;
+    const name = prompt('Enter a name for this scenario:', 'Scenario ' + (Object.keys(savedScenarios).length + 1));
+    if (!name || name.trim() === '') return;
     
-    currentScenarioName = name;
+    currentScenarioName = name.trim();
     saveScenario();
+    
+    // Update the dropdown to show and select the new scenario
+    updateScenarioDropdown();
+    document.getElementById('scenario-selector').value = currentScenarioName;
 }
 
 function loadScenario(name) {
-    if (!savedScenarios[name]) {
-        if (name !== 'Default') {
-            alert('Scenario not found');
-        }
+    if (!name || name === '') return;
+    
+    if (name === 'new') {
+        // Create a new blank scenario
+        createNewScenario();
         return;
     }
     
-    const scenario = savedScenarios[name];
-    currentScenarioName = name;
-    assignments = scenario.assignments || {};
-    mvpSelections = scenario.selections || {};
-    mvpPerformance = scenario.performance || {};
-    measureEstimates = scenario.measureEstimates || {};
-    measureConfigurations = scenario.measureConfigurations || {};
-    yearlyPlan = scenario.yearlyPlan || yearlyPlan;
-    
-    if (scenario.tinNumber) {
-        updateTINNumber(scenario.tinNumber);
+    if (!savedScenarios[name] && name !== 'Default') {
+        alert('Scenario not found');
+        return;
     }
     
-    renderPlanningMode();
+    if (savedScenarios[name]) {
+        const scenario = savedScenarios[name];
+        currentScenarioName = name;
+        assignments = scenario.assignments || {};
+        mvpSelections = scenario.selections || {};
+        mvpPerformance = scenario.performance || {};
+        measureEstimates = scenario.measureEstimates || {};
+        measureConfigurations = scenario.measureConfigurations || {};
+        yearlyPlan = scenario.yearlyPlan || {
+            2025: { mvps: [], measures: [], focus: 'Foundation - High readiness measures' },
+            2026: { mvps: [], measures: [], focus: 'Expansion - Add specialty MVPs' },
+            2027: { mvps: [], measures: [], focus: 'Integration - Cross-specialty coordination' },
+            2028: { mvps: [], measures: [], focus: 'Optimization - Performance improvement' },
+            2029: { mvps: [], measures: [], focus: 'Excellence - Full MVP implementation' }
+        };
+        
+        if (scenario.tinNumber) {
+            updateTINNumber(scenario.tinNumber);
+        }
+    } else if (name === 'Default') {
+        // Load default (blank) scenario
+        currentScenarioName = 'Default';
+        assignments = {};
+        mvpSelections = {};
+        mvpPerformance = {};
+        measureEstimates = {};
+        measureConfigurations = {};
+        selectedClinicians.clear();
+        selectedSpecialties.clear();
+        currentMVP = null;
+    }
+    
+    // Refresh the current view
+    if (currentMode === 'tin-analysis') {
+        renderTINAnalysis();
+    } else if (currentMode === 'planning') {
+        renderPlanningMode();
+    } else if (currentMode === 'performance') {
+        renderPerformanceEstimation();
+    } else if (currentMode === 'executive') {
+        renderExecutiveDashboard();
+    }
+    
     updateStats();
+}
+
+function createNewScenario() {
+    const name = prompt('Enter a name for the new scenario:', 'Scenario ' + (Object.keys(savedScenarios).length + 1));
+    if (!name || name.trim() === '') return;
+    
+    // Reset all data for new scenario
+    currentScenarioName = name.trim();
+    assignments = {};
+    mvpSelections = {};
+    mvpPerformance = {};
+    measureEstimates = {};
+    measureConfigurations = {};
+    selectedClinicians.clear();
+    selectedSpecialties.clear();
+    currentMVP = null;
+    yearlyPlan = {
+        2025: { mvps: [], measures: [], focus: 'Foundation - High readiness measures' },
+        2026: { mvps: [], measures: [], focus: 'Expansion - Add specialty MVPs' },
+        2027: { mvps: [], measures: [], focus: 'Integration - Cross-specialty coordination' },
+        2028: { mvps: [], measures: [], focus: 'Optimization - Performance improvement' },
+        2029: { mvps: [], measures: [], focus: 'Excellence - Full MVP implementation' }
+    };
+    
+    // Save the new blank scenario
+    saveScenario();
+    
+    // Update the dropdown and select the new scenario
+    updateScenarioDropdown();
+    document.getElementById('scenario-selector').value = currentScenarioName;
+    
+    // Refresh the view
+    if (currentMode === 'tin-analysis') {
+        renderTINAnalysis();
+    } else if (currentMode === 'planning') {
+        renderPlanningMode();
+    }
+    
+    updateStats();
+}
+
+function deleteScenario() {
+    if (currentScenarioName === 'Default') {
+        alert('Cannot delete the Default scenario');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete the scenario "${currentScenarioName}"?`)) {
+        return;
+    }
+    
+    delete savedScenarios[currentScenarioName];
+    localStorage.setItem('mvp_scenarios', JSON.stringify(savedScenarios));
+    
+    // Switch to Default scenario
+    loadScenario('Default');
+    updateScenarioDropdown();
+    document.getElementById('scenario-selector').value = 'Default';
+}
+
+function updateScenarioDropdown() {
+    const selector = document.getElementById('scenario-selector');
+    if (!selector) return;
+    
+    const currentValue = selector.value;
+    
+    selector.innerHTML = `
+        <option value="Default">Default Scenario</option>
+        ${Object.keys(savedScenarios).map(name => 
+            name !== 'Default' ? `<option value="${name}">${name}</option>` : ''
+        ).join('')}
+        <option value="new">+ Create New Scenario</option>
+    `;
+    
+    // Restore the selected value if it still exists
+    if (currentValue && Array.from(selector.options).some(opt => opt.value === currentValue)) {
+        selector.value = currentValue;
+    } else {
+        selector.value = currentScenarioName;
+    }
 }
 
 function resetScenario() {
@@ -1604,6 +1734,9 @@ window.saveScenario = saveScenario;
 window.saveAsNewScenario = saveAsNewScenario;
 window.loadScenario = loadScenario;
 window.resetScenario = resetScenario;
+window.deleteScenario = deleteScenario;
+window.createNewScenario = createNewScenario;
+window.updateScenarioDropdown = updateScenarioDropdown;
 window.updateTINNumber = updateTINNumber;
 
 // Initialize when DOM is ready
