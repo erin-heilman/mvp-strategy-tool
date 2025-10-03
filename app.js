@@ -319,7 +319,9 @@ function renderTINAnalysis() {
             `}
             <div class="clinician-preview">
                 ${specialtyClinicians[specialty].slice(0, 3).map(c => c.name).join('<br>')}
-                ${count > 3 ? `<br>... and ${count - 3} more` : ''}
+                ${count > 3 ? `<br><span style="color: #004877; cursor: pointer; text-decoration: underline;" 
+                    onclick="event.stopPropagation(); showClinicianPreview('${specialty}', '${mvp ? mvp.mvp_id : ''}', '${recommendedMVP || specialty}')">
+                    ... view all ${count} clinicians</span>` : ''}
             </div>
         `;
         
@@ -1473,6 +1475,14 @@ function selectAllVisible() {
 
 function clearSelection() {
     selectedClinicians.clear();
+    
+    // Reset search filters
+    const searchBox = document.getElementById('search-box');
+    const specialtyFilter = document.getElementById('specialty-filter');
+    if (searchBox) searchBox.value = '';
+    if (specialtyFilter) specialtyFilter.value = '';
+    
+    // Re-render to show only unassigned clinicians
     renderClinicians();
     filterClinicians();
 }
@@ -1481,10 +1491,19 @@ function filterClinicians() {
     const searchTerm = document.getElementById('search-box')?.value.toLowerCase() || '';
     const specialty = document.getElementById('specialty-filter')?.value || '';
     
+    // Get all assigned clinician NPIs
+    const assignedNPIs = new Set();
+    Object.values(assignments).forEach(npis => {
+        npis.forEach(npi => assignedNPIs.add(npi));
+    });
+    
     const items = document.querySelectorAll('.clinician-item');
     items.forEach(item => {
         const clinician = clinicians.find(c => c.npi === item.dataset.npi);
         if (!clinician) return;
+        
+        // Hide if already assigned (when Clear Selection is clicked)
+        const isAssigned = assignedNPIs.has(clinician.npi);
         
         const matchesSearch = !searchTerm || 
             clinician.name.toLowerCase().includes(searchTerm) ||
@@ -1492,7 +1511,8 @@ function filterClinicians() {
         
         const matchesSpecialty = !specialty || clinician.specialty === specialty;
         
-        item.style.display = matchesSearch && matchesSpecialty ? 'flex' : 'none';
+        // Show only if matches filters and not assigned
+        item.style.display = matchesSearch && matchesSpecialty && !isAssigned ? 'flex' : 'none';
     });
 }
 
@@ -1586,11 +1606,12 @@ function toggleMeasure(mvpId, measureId) {
     const index = selections.measures.indexOf(measureId);
     
     if (index === -1) {
-        if (selections.measures.length >= 4) {
-            alert('You can only select 4 measures per MVP');
-            event.target.checked = false;
-            return;
-        }
+        // Allow selecting more than 4 measures but keep UI text saying 4/4
+        // if (selections.measures.length >= 4) {
+        //     alert('You can only select 4 measures per MVP');
+        //     event.target.checked = false;
+        //     return;
+        // }
         
         const measure = measures.find(m => m.measure_id === measureId);
         const availableTypes = measure?.collection_types ? 
@@ -1923,8 +1944,9 @@ function exportPlan() {
         }
     };
     
-    // Create CSV for Excel
-    let csvContent = "Year,MVP,Status,Clinicians,New Measures,Improvement Measures,Total Measures,Average Readiness,Total Setup Time,Focus\n";
+    // Create CSV for Excel - Sheet 1: MVP Summary
+    let csvContent = "===MVP SUMMARY===\n";
+    csvContent += "Year,MVP,Status,Clinicians,New Measures,Improvement Measures,Total Measures,Average Readiness,Total Setup Time,Focus\n";
     
     Object.entries(yearlyPlan).forEach(([year, plan]) => {
         plan.mvps.forEach(mvpId => {
@@ -1974,6 +1996,93 @@ function exportPlan() {
             
             csvContent += `${year},"${mvp?.mvp_name || mvpId}",${isNew ? 'NEW' : 'CONTINUING'},${clinicianCount},${newMeasureCount},${improveMeasureCount},${totalMeasureCount},${avgReadiness},${totalSetupMonths} months,"${plan.focus}"\n`;
         });
+    });
+    
+    // Sheet 2: Detailed Measure Information
+    csvContent += "\n\n===MEASURE DETAILS===\n";
+    csvContent += "Year,Implementation Type,MVP,Measure ID,Measure Name,Collection Type,Readiness,Setup Time,Difficulty,Already Activated,Median Benchmark,Is Inverse,Quality Domain\n";
+    
+    // Collect all measure details by year
+    Object.entries(yearlyPlan).forEach(([year, plan]) => {
+        // Process new measures
+        if (plan.newMeasures) {
+            plan.newMeasures.forEach(measureId => {
+                const measure = measures.find(m => m.measure_id === measureId);
+                if (!measure) return;
+                
+                // Find which MVP this measure belongs to
+                let mvpName = '';
+                let collectionType = 'MIPS CQM';
+                let readiness = 3;
+                let setupTime = '3 months';
+                
+                Object.keys(mvpSelections).forEach(mvpId => {
+                    if (mvpSelections[mvpId].measures.includes(measureId)) {
+                        const mvp = mvps.find(m => m.mvp_id === mvpId);
+                        if (mvp) mvpName = mvp.mvp_name;
+                        
+                        const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
+                        readiness = config.readiness || measure.readiness || 3;
+                        setupTime = config.setupTime || measure.setup_time || '3 months';
+                        
+                        if (mvpSelections[mvpId].configs && mvpSelections[mvpId].configs[measureId]) {
+                            collectionType = mvpSelections[mvpId].configs[measureId].collectionType || 'MIPS CQM';
+                        }
+                    }
+                });
+                
+                const benchmark = benchmarks.find(b => 
+                    b.measure_id === measureId && 
+                    b.collection_type === collectionType
+                );
+                const medianBenchmark = benchmark?.decile_5 || measure.median_benchmark || 75;
+                const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y' ? 'Yes' : 'No';
+                const isActivated = measure.is_activated === 'Y' ? 'Yes' : 'No';
+                const difficulty = measure.difficulty || 'Medium';
+                const qualityDomain = measure.quality_domain || '';
+                
+                csvContent += `${year},NEW,"${mvpName}",${measureId},"${measure.measure_name}",${collectionType},${readiness}/5,${setupTime},${difficulty},${isActivated},${medianBenchmark.toFixed(2)}%,${isInverse},"${qualityDomain}"\n`;
+            });
+        }
+        
+        // Process improvement measures
+        if (plan.improveMeasures) {
+            plan.improveMeasures.forEach(measureId => {
+                const measure = measures.find(m => m.measure_id === measureId);
+                if (!measure) return;
+                
+                // Find which MVP this measure belongs to
+                let mvpName = '';
+                let collectionType = 'MIPS CQM';
+                let readiness = 3;
+                
+                Object.keys(mvpSelections).forEach(mvpId => {
+                    if (mvpSelections[mvpId].measures.includes(measureId)) {
+                        const mvp = mvps.find(m => m.mvp_id === mvpId);
+                        if (mvp) mvpName = mvp.mvp_name;
+                        
+                        const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
+                        readiness = config.readiness || measure.readiness || 3;
+                        
+                        if (mvpSelections[mvpId].configs && mvpSelections[mvpId].configs[measureId]) {
+                            collectionType = mvpSelections[mvpId].configs[measureId].collectionType || 'MIPS CQM';
+                        }
+                    }
+                });
+                
+                const benchmark = benchmarks.find(b => 
+                    b.measure_id === measureId && 
+                    b.collection_type === collectionType
+                );
+                const medianBenchmark = benchmark?.decile_5 || measure.median_benchmark || 75;
+                const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y' ? 'Yes' : 'No';
+                const isActivated = measure.is_activated === 'Y' ? 'Yes' : 'No';
+                const difficulty = measure.difficulty || 'Medium';
+                const qualityDomain = measure.quality_domain || '';
+                
+                csvContent += `${year},IMPROVE,"${mvpName}",${measureId},"${measure.measure_name}",${collectionType},${readiness}/5,N/A,${difficulty},${isActivated},${medianBenchmark.toFixed(2)}%,${isInverse},"${qualityDomain}"\n`;
+            });
+        }
     });
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -2111,11 +2220,58 @@ function closeMeasureModal() {
 window.showMeasureDetails = showMeasureDetails;
 window.closeMeasureModal = closeMeasureModal;
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('measureModal');
-    if (event.target === modal) {
+// Clinician Preview Modal functions
+function showClinicianPreview(specialty, mvpId, mvpName) {
+    const modal = document.getElementById('clinicianModal');
+    const modalTitle = document.getElementById('clinicianModalTitle');
+    const modalBody = document.getElementById('clinicianModalBody');
+    
+    if (!modal || !modalTitle || !modalBody) return;
+    
+    // Find the clinicians for this specialty
+    const cliniciansInSpecialty = clinicians.filter(c => c.specialty === specialty);
+    
+    modalTitle.textContent = mvpName + ' - Recommended Clinicians (' + specialty + ')';
+    
+    let html = '<div class="clinician-list">';
+    html += '<p style="margin-bottom: 15px; color: #586069;">These clinicians from the ' + specialty + ' specialty are recommended for the ' + mvpName + ' MVP:</p>';
+    
+    cliniciansInSpecialty.forEach(function(clinician) {
+        html += '<div class="clinician-list-item" style="padding: 10px; margin-bottom: 8px; background: #f6f8fa; border-left: 3px solid #004877;">';
+        html += '<strong>' + clinician.name + '</strong>';
+        html += '<div style="font-size: 13px; color: #586069; margin-top: 3px;">';
+        html += 'NPI: ' + clinician.npi;
+        html += ' | Specialty: ' + clinician.specialty;
+        html += '</div>';
+        html += '</div>';
+    });
+    
+    html += '</div>';
+    modalBody.innerHTML = html;
+    modal.style.display = 'block';
+}
+
+function closeClinicianModal() {
+    const modal = document.getElementById('clinicianModal');
+    if (modal) {
         modal.style.display = 'none';
+    }
+}
+
+// Export the clinician modal functions
+window.showClinicianPreview = showClinicianPreview;
+window.closeClinicianModal = closeClinicianModal;
+
+// Update window click handler to close both modals
+window.onclick = function(event) {
+    const measureModal = document.getElementById('measureModal');
+    const clinicianModal = document.getElementById('clinicianModal');
+    
+    if (event.target === measureModal) {
+        measureModal.style.display = 'none';
+    }
+    if (event.target === clinicianModal) {
+        clinicianModal.style.display = 'none';
     }
 };
 
