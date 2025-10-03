@@ -1998,13 +1998,13 @@ function exportPlan() {
         });
     });
     
-    // Sheet 2: Detailed Measure Information
-    csvContent += "\n\n===MEASURE DETAILS===\n";
-    csvContent += "Year,Implementation Type,MVP,Measure ID,Measure Name,Collection Type,Readiness,Setup Time,Difficulty,Already Activated,Median Benchmark,Is Inverse,Quality Domain\n";
+    // Sheet 2: Detailed Measure Information (NEW measures only)
+    csvContent += "\n\n===NEW MEASURE DETAILS===\n";
+    csvContent += "Year,MVP,Measure ID,Measure Name,Collection Type,Readiness,Setup Time,Difficulty,Already Activated,Median Benchmark,Is Inverse,Quality Domain\n";
     
-    // Collect all measure details by year
+    // Collect all NEW measure details by year
     Object.entries(yearlyPlan).forEach(([year, plan]) => {
-        // Process new measures
+        // Process only new measures
         if (plan.newMeasures) {
             plan.newMeasures.forEach(measureId => {
                 const measure = measures.find(m => m.measure_id === measureId);
@@ -2041,46 +2041,7 @@ function exportPlan() {
                 const difficulty = measure.difficulty || 'Medium';
                 const qualityDomain = measure.quality_domain || '';
                 
-                csvContent += `${year},NEW,"${mvpName}",${measureId},"${measure.measure_name}",${collectionType},${readiness}/5,${setupTime},${difficulty},${isActivated},${medianBenchmark.toFixed(2)}%,${isInverse},"${qualityDomain}"\n`;
-            });
-        }
-        
-        // Process improvement measures
-        if (plan.improveMeasures) {
-            plan.improveMeasures.forEach(measureId => {
-                const measure = measures.find(m => m.measure_id === measureId);
-                if (!measure) return;
-                
-                // Find which MVP this measure belongs to
-                let mvpName = '';
-                let collectionType = 'MIPS CQM';
-                let readiness = 3;
-                
-                Object.keys(mvpSelections).forEach(mvpId => {
-                    if (mvpSelections[mvpId].measures.includes(measureId)) {
-                        const mvp = mvps.find(m => m.mvp_id === mvpId);
-                        if (mvp) mvpName = mvp.mvp_name;
-                        
-                        const config = measureConfigurations[`${mvpId}_${measureId}`] || {};
-                        readiness = config.readiness || measure.readiness || 3;
-                        
-                        if (mvpSelections[mvpId].configs && mvpSelections[mvpId].configs[measureId]) {
-                            collectionType = mvpSelections[mvpId].configs[measureId].collectionType || 'MIPS CQM';
-                        }
-                    }
-                });
-                
-                const benchmark = benchmarks.find(b => 
-                    b.measure_id === measureId && 
-                    b.collection_type === collectionType
-                );
-                const medianBenchmark = benchmark?.decile_5 || measure.median_benchmark || 75;
-                const isInverse = benchmark?.is_inverse === 'Y' || measure.is_inverse === 'Y' ? 'Yes' : 'No';
-                const isActivated = measure.is_activated === 'Y' ? 'Yes' : 'No';
-                const difficulty = measure.difficulty || 'Medium';
-                const qualityDomain = measure.quality_domain || '';
-                
-                csvContent += `${year},IMPROVE,"${mvpName}",${measureId},"${measure.measure_name}",${collectionType},${readiness}/5,N/A,${difficulty},${isActivated},${medianBenchmark.toFixed(2)}%,${isInverse},"${qualityDomain}"\n`;
+                csvContent += `${year},"${mvpName}",${measureId},"${measure.measure_name}",${collectionType},${readiness}/5,${setupTime},${difficulty},${isActivated},${medianBenchmark.toFixed(2)}%,${isInverse},"${qualityDomain}"\n`;
             });
         }
     });
